@@ -43,7 +43,6 @@
     get_epochs/1,
     get_filepath/1,
     get_instance_start_time/1,
-    get_last_purged/1,
     get_pid/1,
     get_revs_limit/1,
     get_security/1,
@@ -51,12 +50,14 @@
     get_user_ctx/1,
     get_uuid/1,
     get_purge_seq/1,
+    get_purge_infos_limit/1,
 
     is_db/1,
     is_system_db/1,
     is_clustered/1,
 
     set_revs_limit/2,
+    set_purge_infos_limit/2,
     set_security/2,
     set_user_ctx/2,
 
@@ -75,6 +76,7 @@
     get_full_doc_infos/2,
     get_missing_revs/2,
     get_design_docs/1,
+    load_purge_infos/2,
 
     update_doc/3,
     update_doc/4,
@@ -84,6 +86,7 @@
     delete_doc/3,
 
     purge_docs/2,
+    purge_docs/3,
 
     with_stream/3,
     open_write_stream/2,
@@ -97,6 +100,8 @@
     fold_changes/4,
     fold_changes/5,
     count_changes_since/2,
+    fold_purge_infos/4,
+    fold_purge_infos/5,
 
     calculate_start_seq/3,
     owner_of/2,
@@ -366,8 +371,31 @@ get_full_doc_info(Db, Id) ->
 get_full_doc_infos(Db, Ids) ->
     couch_db_engine:open_docs(Db, Ids).
 
-purge_docs(#db{main_pid=Pid}, IdsRevs) ->
-    gen_server:call(Pid, {purge_docs, IdsRevs}).
+
+-spec purge_docs(#db{}, [{UUId, Id, [Rev]}]) ->
+    {ok, [Reply]} when
+    UUId :: binary(),
+    Id :: binary(),
+    Rev :: {non_neg_integer(), binary()},
+    Reply :: {ok, []} | {ok, [Rev]}.
+purge_docs(#db{main_pid = Pid}, UUIdsIdsRevs) ->
+    gen_server:call(Pid, {purge_docs, UUIdsIdsRevs});
+
+-spec load_purge_infos(#db{}, [UUId]) -> [PurgeInfo] when
+    UUId :: binary(),
+    PurgeInfo :: {PurgeSeq, UUId, Id, [Rev]} | not_found,
+    Id :: binary(),
+    Rev :: {non_neg_integer(), binary()}.
+load_purge_infos(Db, UUIDs) ->
+    couch_db_engine:load_purge_infos(Db, UUIDs).
+
+
+set_purge_infos_limit(#db{main_pid=Pid}=Db, Limit) when Limit > 0 ->
+    check_is_admin(Db),
+    gen_server:call(Pid, {set_purge_infos_limit, Limit}, infinity);
+set_purge_infos_limit(_Db, _Limit) ->
+    throw(invalid_purge_infos_limit).
+
 
 get_after_doc_read_fun(#db{after_doc_read = Fun}) ->
     Fun.
@@ -389,8 +417,13 @@ get_user_ctx(?OLD_DB_REC = Db) ->
 get_purge_seq(#db{}=Db) ->
     {ok, couch_db_engine:get_purge_seq(Db)}.
 
-get_last_purged(#db{}=Db) ->
-    {ok, couch_db_engine:get_last_purged(Db)}.
+get_oldest_purge_seq(#db{}=Db) ->
+    {ok, StartSeq} = get_purge_seq(Db),
+    FoldFun = fun({_UUId, PurgeSeq, _, _}, _) -> {stop, PurgeSeq} end,
+    fold_purge_infos(Db, StartSeq, FoldFun, StartSeq).
+
+get_purge_infos_limit(#db{}=Db) ->
+    couch_db_engine:get_purge_infos_limit(Db).
 
 get_pid(#db{main_pid = Pid}) ->
     Pid.
@@ -1401,6 +1434,14 @@ fold_changes(Db, StartSeq, UserFun, UserAcc) ->
 
 fold_changes(Db, StartSeq, UserFun, UserAcc, Opts) ->
     couch_db_engine:fold_changes(Db, StartSeq, UserFun, UserAcc, Opts).
+
+
+fold_purge_infos(Db, StartPurgeSeq, Fun, Acc) ->
+    fold_purge_infos(Db, StartPurgeSeq, Fun, Acc, []).
+
+
+fold_purge_infos(Db, StartPurgeSeq, UFun, UAcc, Opts) ->
+    couch_db_engine:fold_purge_infos(Db, StartPurgeSeq, UFun, UAcc, Opts).
 
 
 count_changes_since(Db, SinceSeq) ->
