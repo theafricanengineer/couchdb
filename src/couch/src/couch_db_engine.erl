@@ -398,13 +398,14 @@
 % and as such is guaranteed single threaded for the given
 % DbHandle.
 %
-% The DocPair argument is a 2-tuple of #full_doc_info{} records. The
-% first element of th epair is the #full_doc_info{} that exists
+% Each doc_pair() is a 2-tuple of #full_doc_info{} records. The
+% first element of the pair is the #full_doc_info{} that exists
 % on disk. The second element is the new version that should be
-% written to disk. There are two basic cases that should be considered:
+% written to disk. There are three basic cases that should be considered:
 %
 %     1. {#full_doc_info{}, #full_doc_info{}} - A document was partially purged
 %     2. {#full_doc_info{}, not_found} - A document was completely purged
+%     3. {not_found, not_found} - A no-op purge
 %
 % In case 1, non-tail-append engines may have to remove revisions
 % specifically rather than rely on compaction to remove them. Also
@@ -415,11 +416,14 @@
 % means it needs to be removed from the database including the
 % update sequence.
 %
-% The PurgeInfo contains the purge_seq, uuid, docid and revisions that
-% were requested to be purged. This should be persisted in such a way
-% that we can efficiently load purge_info() by its UUID as well as
-% iterate over purge_info() entries in order of their PurgeSeq.
--callback purge_doc(DbHandle::db_handle(), doc_pair(), purge_info()) ->
+% In case 3 we just need to store the purge_info() to know that it
+% was processed even though it produced no changes to the database.
+%
+% The purge_info() tuples contain the purge_seq, uuid, docid and
+% revisions that were requested to be purged. This should be persisted
+% in such a way that we can efficiently load purge_info() by its UUID
+% as well as iterate over purge_info() entries in order of their PurgeSeq.
+-callback purge_docs(DbHandle::db_handle(), [doc_pair()], [purge_info()]) ->
         {ok, NewDbHandle::db_handle()}.
 
 
