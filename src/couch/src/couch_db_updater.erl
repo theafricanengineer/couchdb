@@ -688,97 +688,11 @@ purge_docs([Req | RestReqs], [FDI | RestInfos], USeq, PSeq, Acc) ->
     end,
     {Pairs, PInfos, Replies} = Acc,
     NewAcc = {
-      [Pair | Pairs],
-      [{PSeq, UUID, DocId, Revs} | PInfos],
-      [{ok, RemovedRevs} | Replies]
+        [Pair | Pairs],
+        [{PSeq, UUID, DocId, Revs} | PInfos],
+        [{ok, RemovedRevs} | Replies]
     },
     purge_docs(RestReqs, RestInfos, NewUSeq, PSeq + 1, NewAcc).
-
-
-% find purge seq such that all purge requests that happen before or
-% during it can be removed from purge trees
-get_disposable_purge_seq(#db{name=DbName} = Db) ->
-    PSeq = couch_db_engine:get_purge_seq(Db),
-    OldestPSeq = couch_db_engine:get_oldest_purge_seq(Db),
-    PDocsLimit = couch_db_engine:get_purged_docs_limit(Db),
-    ExpectedDispPSeq = PSeq - PDocsLimit,
-    % client's purge_seq can be up to "allowed_purge_seq_lag"
-    % behind ExpectedDispPSeq
-    AllowedPSeqLag = config:get_integer("purge", "allowed_purge_seq_lag", 100),
-    ClientAllowedMinPSeq = ExpectedDispPSeq - AllowedPSeqLag,
-    DisposablePSeq = if OldestPSeq > ClientAllowedMinPSeq ->
-        % DisposablePSeq is the last pseq we can remove;
-        % it should be one less than OldestPSeq when #purges is within limit
-        OldestPSeq - 1;
-    true ->
-        % Find the smallest checkpointed purge_seq among clients
-        V = "v" ++ config:get("purge", "version", "1") ++ "-",
-        Opts = [
-            {start_key, list_to_binary(?LOCAL_DOC_PREFIX ++ "purge-" ++ V)},
-            {end_key_gt, list_to_binary(?LOCAL_DOC_PREFIX ++ "purge1")}
-        ],
-        FoldFun = fun(#doc{id=DocID, body={Props}}, MinPSeq) ->
-            ClientPSeq = couch_util:get_value(<<"purge_seq">>, Props),
-            MinPSeq2 = if ClientPSeq >= ClientAllowedMinPSeq ->
-                erlang:min(MinPSeq, ClientPSeq);
-            true ->
-                case check_client_exists(DbName, DocID, Props) of
-                    true ->  erlang:min(MinPSeq, ClientPSeq);
-                    false -> MinPSeq % ignore nonexisting clients
-                end
-            end,
-            {ok, MinPSeq2}
-        end,
-        {ok, ClientPSeq} = couch_db_engine:fold_local_docs(
-            Db, FoldFun, PSeq, Opts),
-        erlang:min(ClientPSeq, ExpectedDispPSeq)
-    end,
-    DisposablePSeq.
-
-
-check_client_exists(DbName, DocID, Props) ->
-    % will warn about clients that have not
-    % checkpointed more than "allowed_purge_time_lag"
-    AllowedPTimeLag = config:get_integer("purge",
-        "allowed_purge_time_lag", 86400), % secs in 1 day
-    M0 = couch_util:get_value(<<"verify_module">>, Props),
-    F0 = couch_util:get_value(<<"verify_function">>, Props),
-    M = binary_to_atom(M0, latin1),
-    F = binary_to_atom(F0, latin1),
-    {A} = couch_util:get_value(<<"verify_options">>, Props),
-    ClientExists = try erlang:apply(M, F, [A]) of
-        true ->
-            % warn if we haven't heard of this client more than AllowedPTimeLag
-            ClientTime = ?b2l(couch_util:get_value(<<"timestamp_utc">>, Props)),
-            {ok, [Y, Mon, D, H, Min, S], [] }=
-                io_lib:fread("~4d-~2d-~2dT~2d:~2d:~2dZ", ClientTime),
-            SecsClient = calendar:datetime_to_gregorian_seconds(
-                {{Y, Mon, D}, {H, Min, S}}),
-            SecsNow = calendar:datetime_to_gregorian_seconds(
-                calendar:now_to_universal_time(os:timestamp())),
-            if SecsClient + AllowedPTimeLag > SecsNow -> ok; true ->
-                couch_log:warning(
-                    "Client: ~p hasn't processed purge requests for more than"
-                    " ~p secs. Check this client, as it prevents compaction of "
-                    "purge trees on db:~p.", [A, AllowedPTimeLag, DbName]
-                )
-            end,
-            true;
-        false ->
-            couch_log:warning(
-                "Client ~p doesn't exist, "
-                "but its checkpoint purge doc: ~p is still available. "
-                "Remove this doc from: ~p", [A, DocID, DbName]
-            ),
-            false
-    catch
-        error:Error ->
-            couch_log:error(
-                "error in evaluating if client: ~p exists: ~p", [A, Error]
-            ),
-        false
-    end,
-    ClientExists.
 
 
 commit_data(Db) ->
