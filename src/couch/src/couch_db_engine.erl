@@ -216,9 +216,13 @@
 -callback get_epochs(DbHandle::db_handle()) -> Epochs::epochs().
 
 
-% Get the current purge sequence. This should be incremented
-% for every purge operation.
+% Get the current purge sequence known to the engine. This
+% value should be updated during calls to purge_docs.
 -callback get_purge_seq(DbHandle::db_handle()) -> purge_seq().
+
+
+% Get the oldest purge sequence known to the engine
+-callback get_oldest_purge_seq(DbHandle::db_handle()) -> purge_seq().
 
 
 % Get the purged infos limit. This should just return the last
@@ -659,6 +663,7 @@
     get_doc_count/1,
     get_epochs/1,
     get_purge_seq/1,
+    get_oldest_purge_seq/1,
     get_purge_infos_limit/1,
     get_revs_limit/1,
     get_security/1,
@@ -805,6 +810,11 @@ get_epochs(#db{} = Db) ->
 get_purge_seq(#db{} = Db) ->
     #db{engine = {Engine, EngineState}} = Db,
     Engine:get_purge_seq(EngineState).
+
+
+get_oldest_purge_seq(#db{} = Db) ->
+    #db{engine = {Engine, EngineState}} = Db,
+    Engine:get_oldest_purge_seq(EngineState).
 
 
 get_purge_infos_limit(#db{} = Db) ->
