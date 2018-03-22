@@ -29,8 +29,8 @@
     revs,
     latest,
     replies = [],
+    node_id_revs = [],
     repair = false,
-    replies_by_node=[] %[{Node, Reply}] used for read_repair
 }).
 
 go(DbName, Id, Revs, Options) ->
@@ -83,7 +83,7 @@ handle_message({ok, RawReplies}, Worker, State) ->
         worker_count = WorkerCount,
         workers = Workers,
         replies = PrevReplies,
-        replies_by_node = PrevNReplies,
+        node_id_revs = PrevNodeIdRevs,
         r = R,
         revs = Revs,
         latest = Latest,
@@ -109,9 +109,14 @@ handle_message({ok, RawReplies}, Worker, State) ->
             {NewReplies0, MinCount} = dict_replies(PrevReplies, RawReplies),
             {NewReplies0, MinCount >= R, false}
     end,
-    NewNReplies = case Worker of
-        nil -> PrevNReplies;
-        _ -> [{Worker#shard.node, RawReplies}|PrevNReplies]
+    NewNodeIdRevs = if Woker == nil -> PrevNodeIdRevs; true ->
+        IdRevs = lists:foldl(fun
+            ({ok, #doc{id = Id, revs = {Pos, [Rev | _]}}}, Acc) ->
+                [{Id, {Pos, Rev}} | Acc];
+            (_, Acc) ->
+                Acc
+        end, [], RawReplies),
+        [{Worker#worker.shard, IdRevs} | PrevNodeIdRevs]
     end,
 
     Complete = (ReplyCount =:= (WorkerCount - 1)),
@@ -123,7 +128,7 @@ handle_message({ok, RawReplies}, Worker, State) ->
                     DbName,
                     IsTree,
                     NewReplies,
-                    NewNReplies,
+                    NewNodeIdRevs,
                     ReplyCount + 1,
                     InRepair orelse Repair
                 ),
@@ -131,7 +136,7 @@ handle_message({ok, RawReplies}, Worker, State) ->
         false ->
             {ok, State#state{
                 replies = NewReplies,
-                replies_by_node = NewNReplies,
+                node_id_revs = NewNodeIdRevs,
                 reply_count = ReplyCount + 1,
                 workers = lists:delete(Worker, Workers),
                 repair = InRepair orelse Repair
@@ -188,7 +193,7 @@ dict_replies(Dict, [Reply | Rest]) ->
     dict_replies(NewDict, Rest).
 
 
-maybe_read_repair(Db, IsTree, Replies, NodeReplies0, ReplyCount, DoRepair) ->
+maybe_read_repair(Db, IsTree, Replies, NodeIdRevs, ReplyCount, DoRepair) ->
     Docs = case IsTree of
         true -> tree_repair_docs(Replies, DoRepair);
         false -> dict_repair_docs(Replies, ReplyCount)
@@ -197,11 +202,7 @@ maybe_read_repair(Db, IsTree, Replies, NodeReplies0, ReplyCount, DoRepair) ->
         [] ->
             ok;
         _ ->
-            NodeReplies = lists:foldl(fun({Node, NReplies}, Acc) ->
-                NewAcc = [{Node, Doc} || {ok, Doc} <- NReplies],
-                NewAcc ++ Acc
-            end, [], NodeReplies0),
-            erlang:spawn(fun() -> read_repair(Db, Docs, NodeReplies) end)
+            erlang:spawn(fun() -> read_repair(Db, Docs, NodeIdRevs) end)
     end.
 
 
@@ -220,8 +221,8 @@ dict_repair_docs(Replies, ReplyCount) ->
     end.
 
 
-read_repair(Db, Docs, NodeReplies) ->
-    Opts = [replicated_changes, ?ADMIN_CTX, {read_repair, NodeReplies}],
+read_repair(Db, Docs, NodeIdRevs) ->
+    Opts = [replicated_changes, ?ADMIN_CTX, {read_repair, NodeIdRevs}],
     Res = fabric:update_docs(Db, Docs, Opts),
     case Res of
         {ok, []} ->

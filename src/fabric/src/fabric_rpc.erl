@@ -351,7 +351,8 @@ read_repair_filter_docs(DbName, NodeIdRevs, Docs, Options) ->
 % NodeIdRevs are the list of {node(), {docid(), [rev()]}}
 % tuples passed as the read_repair option to update_docs.
 filter_purged_revs(Db, NodeIdRevs, Docs) ->
-    Nodes = lists:usort([Node || {Node, _IdRevs} <- NodeIdRevs]),
+    Nodes0 = [Node || {Node, _IdRevs} <- NodeIdRevs, Node /= node()],
+    Nodes = lists:usort(Nodes0),
 
     % Gather the list of {Node, PurgeSeq} pairs for all nodes
     % that are present in our read repair group
