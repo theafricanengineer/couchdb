@@ -98,14 +98,13 @@ handle_message({ok, RawReplies}, Worker, State) ->
     QuorumReplies = RealReplyCount >= R,
     {NewReplies, QuorumMet, Repair} = case IsTree of
         true ->
-            {NewReplies0, AllInternal, Repair00} =
+            {NewReplies0, AllInternal, Repair0} =
                     tree_replies(PrevReplies, tree_sort(RawReplies)),
-            % don't set Repair=true on the first reply
-            Repair0 = (ReplyCount > 0) and Repair00,
             NumLeafs = couch_key_tree:count_leafs(PrevReplies),
             SameNumRevs = length(RawReplies) == NumLeafs,
             QMet = AllInternal andalso SameNumRevs andalso QuorumReplies,
-            {NewReplies0, QMet, Repair0};
+            % Don't set repair=true on the first reply
+            {NewReplies0, QMet, (ReplyCount > 0) and Repair0};
         false ->
             {NewReplies0, MinCount} = dict_replies(PrevReplies, RawReplies),
             {NewReplies0, MinCount >= R, false}
