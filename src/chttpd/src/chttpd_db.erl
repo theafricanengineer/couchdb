@@ -502,13 +502,9 @@ db_req(#httpd{method='POST',path_parts=[_,<<"_purge">>]}=Req, Db) ->
     Options = [{user_ctx, Req#httpd.user_ctx}, {w, W}],
     {IdsRevs} = chttpd:json_body_obj(Req),
     IdsRevs2 = [{Id, couch_doc:parse_revs(Revs)} || {Id, Revs} <- IdsRevs],
-    {Status, Results} = fabric:purge_docs(Db, IdsRevs2, Options),
-    Code = case Status of
-        ok -> 201;
-        accepted -> 202
-    end,
-    Purged = lists:zipwith(fun purge_result_to_json/2, IdsRevs2, Results),
-    send_json(Req, Code, {[{<<"purged">>, {Purged}}]});
+    {ok, Results} = fabric:purge_docs(Db, IdsRevs2, Options),
+    {Code, JSON} = purge_results_to_json(IdsRevs2, Results),
+    send_json(Req, Code, {[{<<"purge_seq">>, null}, {<<"purged">>, JSON}]});
 
 db_req(#httpd{path_parts=[_,<<"_purge">>]}=Req, _Db) ->
     send_method_not_allowed(Req, "POST");
@@ -969,13 +965,20 @@ update_doc_result_to_json(DocId, Error) ->
     {_Code, ErrorStr, Reason} = chttpd:error_info(Error),
     {[{id, DocId}, {error, ErrorStr}, {reason, Reason}]}.
 
-purge_result_to_json({DocId, _Revs}, {ok, PRevs}) ->
-    {DocId, {[{purged, couch_doc:revs_to_strs(PRevs)}, {ok, true}]}};
-purge_result_to_json({DocId, _Revs}, {accepted, PRevs}) ->
-    {DocId, {[{purged, couch_doc:revs_to_strs(PRevs)}, {accepted, true}]}};
-purge_result_to_json({DocId, _Revs}, Error) ->
-    {_Code, ErrorStr, Reason} = chttpd:error_info(Error),
-    {DocId, {[{error, ErrorStr}, {reason, Reason}]}}.
+purge_results_to_json([], []) ->
+    {201, []};
+purge_results_to_json([{DocId, _Revs} | RIn], [{ok, PRevs} | ROut]) ->
+    {Code, Results} = purge_results_to_json(RestIn, RestOut),
+    {Code, [{DocId, couch_doc:revs_to_strs(PRevs)} | Results]};
+purge_results_to_json([{DocId, _Revs} | RIn], [{accepted, PRevs} | ROut]) ->
+    {Code, Results} = purge_results_to_json(RIn, ROut),
+    NewResults = [{DocId, couch_doc:revs_to_strs(PRevs)} | Results],
+    {erlang:max(Code, 202), NewResults};
+purge_results_to_json([{DocId, _Revs} | RIn], [Error | ROut]) ->
+    {Code, Results} = purge_results_to_json(RIn, ROut),
+    {NewCode, ErrorStr, Reason} = chttpd:error_info(Error),
+    NewResults = [{DocId, {[{error, ErrorStr}, {reason, Reason}]}} | Results],
+    {erlang:max(NewCode, Code), NewResults}.
 
 send_updated_doc(Req, Db, DocId, Json) ->
     send_updated_doc(Req, Db, DocId, Json, []).
