@@ -284,19 +284,11 @@ update_docs(DbName, Docs, Options) ->
 %% @doc purge revisions for a list '{Id, Revs}'
 %%      returns {ok, {PurgeSeq, Results}}
 -spec purge_docs(dbname(), [{docid(), [revision()]}], [option()]) ->
-    {Health, {PurgeSeq, [{Health, [revision()]}] }} when
-    Health     :: ok | accepted,
-    PurgeSeq   :: any().
+    {ok, [{Health, [revision()]}] | {error, any()}}} when
+    Health :: ok | accepted.
 purge_docs(DbName, IdsRevs, Options) when is_list(IdsRevs) ->
     IdsRevs2 = [idrevs(IdRs) || IdRs <- IdsRevs],
-    case fabric_doc_purge:go(dbname(DbName), IdsRevs2, opts(Options)) of
-        {ok, Results} ->
-            {ok, Results};
-        {accepted, Results} ->
-            {accepted, Results};
-        Error ->
-            throw(Error)
-    end.
+    fabric_doc_purge:go(dbname(DbName), IdsRevs2, opts(Options)).
 
 
 %% @doc spawns a process to upload attachment data and
