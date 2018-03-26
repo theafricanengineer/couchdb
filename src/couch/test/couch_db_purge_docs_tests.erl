@@ -81,7 +81,7 @@ purge_simple(DbName) ->
             ?assertEqual([Rev2], PRevs2),
 
             {ok, Db3} = couch_db:reopen(Db2),
-            {ok, PIdsRevs} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs} = couch_db:fold_purge_infos(
                 Db3, 0, fun fold_fun/2, [], []),
             ?assertEqual(0, couch_db_engine:get_doc_count(Db3)),
             ?assertEqual(0, couch_db_engine:get_del_doc_count(Db3)),
@@ -109,7 +109,7 @@ add_delete_purge(DbName) ->
             couch_db:ensure_full_commit(Db1),
 
             {ok, Db2} = couch_db:reopen(Db1),
-            {ok, PIdsRevs1} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs1} = couch_db:fold_purge_infos(
                 Db2, 0, fun fold_fun/2, [], []),
             ?assertEqual(0, couch_db_engine:get_doc_count(Db2)),
             ?assertEqual(1, couch_db_engine:get_del_doc_count(Db2)),
@@ -123,7 +123,7 @@ add_delete_purge(DbName) ->
             ?assertEqual([Rev2], PRevs),
 
             {ok, Db3} = couch_db:reopen(Db2),
-            {ok, PIdsRevs2} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs2} = couch_db:fold_purge_infos(
                 Db3, 0, fun fold_fun/2, [], []),
             ?assertEqual(0, couch_db_engine:get_doc_count(Db3)),
             ?assertEqual(0, couch_db_engine:get_del_doc_count(Db3)),
@@ -155,7 +155,7 @@ add_two_purge_one(DbName) ->
             ?assertEqual([Rev], PRevs),
 
             {ok, Db3} = couch_db:reopen(Db2),
-            {ok, PIdsRevs} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs} = couch_db:fold_purge_infos(
                 Db3, 0, fun fold_fun/2, [], []),
             ?assertEqual(1, couch_db_engine:get_doc_count(Db3)),
             ?assertEqual(0, couch_db_engine:get_del_doc_count(Db3)),
@@ -175,7 +175,7 @@ purge_id_not_exist(DbName) ->
             ?assertEqual([], PRevs),
 
             {ok, Db2} = couch_db:reopen(Db),
-            {ok, PIdsRevs} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs} = couch_db:fold_purge_infos(
                 Db2, 0, fun fold_fun/2, [], []),
             ?assertEqual(0, couch_db_engine:get_doc_count(Db2)),
             ?assertEqual(0, couch_db_engine:get_del_doc_count(Db2)),
@@ -208,7 +208,7 @@ purge_non_leaf_rev(DbName) ->
             ?assertEqual([], PRevs),
 
             {ok, Db4} = couch_db:reopen(Db3),
-            {ok, PIdsRevs} = couch_db:fold_purged_docs(Db4, 0, fun fold_fun/2, [], []),
+            {ok, PIdsRevs} = couch_db:fold_purge_infos(Db4, 0, fun fold_fun/2, [], []),
             ?assertEqual(1, couch_db_engine:get_doc_count(Db4)),
             ?assertEqual(2, couch_db_engine:get_update_seq(Db4)),
             ?assertEqual(0, couch_db_engine:get_purge_seq(Db4)),
@@ -241,7 +241,7 @@ purge_conflicts(DbName) ->
             ?assertEqual([Rev], PRevs),
 
             {ok, Db4} = couch_db:reopen(Db3),
-            {ok, PIdsRevs} = couch_db:fold_purged_docs(
+            {ok, PIdsRevs} = couch_db:fold_purge_infos(
                 Db4, 0, fun fold_fun/2, [], []),
             % still has one doc
             ?assertEqual(1, couch_db_engine:get_doc_count(Db4)),

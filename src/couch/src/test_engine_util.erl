@@ -24,7 +24,7 @@
     test_engine_attachments,
     test_engine_fold_docs,
     test_engine_fold_changes,
-    test_engine_fold_purged_docs,
+    test_engine_fold_purge_infos,
     test_engine_purge_docs,
     test_engine_compaction,
     test_engine_ref_counting
@@ -238,7 +238,7 @@ gen_write(Engine, St, {purge, {DocId, PrevRevs0, _}}, UpdateSeq) ->
                 _ -> false
             end
         end,
-        {ok, IsPurgedBefore} = Engine:fold_purged_docs(
+        {ok, IsPurgedBefore} = Engine:fold_purge_infos(
             St, 0, FoldFun, false, []),
         case IsPurgedBefore of
             true -> {{}, UpdateSeq, purged_before};
@@ -263,7 +263,7 @@ gen_write(Engine, St, {purge, {DocId, PrevRevs0, _}}, UpdateSeq) ->
                     _ -> Acc
                 end
             end,
-            {ok, PurgedRevs} = Engine:fold_purged_docs(St, 0, FoldFun, [], []),
+            {ok, PurgedRevs} = Engine:fold_purge_infos(St, 0, FoldFun, [], []),
             case lists:subtract(PrevRevs, PurgedRevs) of [] -> ok; _ ->
                 % If we didn't purge all the requested revisions
                 % and they haven't been purged before
@@ -498,7 +498,7 @@ db_purged_docs_as_term(Engine, St) ->
     FoldFun = fun({PSeq, UUID, Id, Revs}, Acc) ->
         [{PSeq, UUID, Id, Revs} | Acc]
     end,
-    {ok, PDocs} = Engine:fold_purged_docs(St, StartPSeq, FoldFun, [], []),
+    {ok, PDocs} = Engine:fold_purge_infos(St, StartPSeq, FoldFun, [], []),
     lists:reverse(PDocs).
 
 

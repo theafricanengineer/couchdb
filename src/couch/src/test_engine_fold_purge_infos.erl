@@ -10,7 +10,7 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
--module(test_engine_fold_purged_docs).
+-module(test_engine_fold_purge_infos).
 -compile(export_all).
 
 
@@ -23,7 +23,7 @@
 
 cet_empty_purged_docs() ->
     {ok, Engine, St} = test_engine_util:init_engine(),
-    ?assertEqual({ok, []}, Engine:fold_purged_docs(St, 0, fun fold_fun/2, [], [])).
+    ?assertEqual({ok, []}, Engine:fold_purge_infos(St, 0, fun fold_fun/2, [], [])).
 
 
 cet_all_purged_docs() ->
@@ -49,7 +49,7 @@ cet_all_purged_docs() ->
     {Actions2, IdsRevs} = {lists:reverse(RevActions2), lists:reverse(RevIdRevs)},
 
     {ok, St3} = test_engine_util:apply_actions(Engine, St2, Actions2),
-    {ok, PurgedIdRevs} = Engine:fold_purged_docs(St3, 0, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs} = Engine:fold_purge_infos(St3, 0, fun fold_fun/2, [], []),
     ?assertEqual(IdsRevs, lists:reverse(PurgedIdRevs)).
 
 
@@ -77,7 +77,7 @@ cet_start_seq() ->
 
     StartSeq = 3,
     StartSeqIdRevs = lists:nthtail(StartSeq, lists:reverse(RIdRevs)),
-    {ok, PurgedIdRevs} = Engine:fold_purged_docs(St3, StartSeq, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs} = Engine:fold_purge_infos(St3, StartSeq, fun fold_fun/2, [], []),
     ?assertEqual(StartSeqIdRevs, lists:reverse(PurgedIdRevs)).
 
 
@@ -98,13 +98,13 @@ cet_id_rev_repeated() ->
     ],
     {ok, St3} = test_engine_util:apply_actions(Engine, St2, Actions2),
     PurgedIdRevs0 = [{<<"foo">>, [Rev1]}],
-    {ok, PurgedIdRevs1} = Engine:fold_purged_docs(St3, 0, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs1} = Engine:fold_purge_infos(St3, 0, fun fold_fun/2, [], []),
     ?assertEqual(PurgedIdRevs0, PurgedIdRevs1),
     ?assertEqual(1, Engine:get_purge_seq(St3)),
 
     % purge the same Id,Rev when the doc still exists
     {ok, St4} = test_engine_util:apply_actions(Engine, St3, Actions2),
-    {ok, PurgedIdRevs2} = Engine:fold_purged_docs(St4, 0, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs2} = Engine:fold_purge_infos(St4, 0, fun fold_fun/2, [], []),
     ?assertEqual(PurgedIdRevs0, PurgedIdRevs2),
     ?assertEqual(1, Engine:get_purge_seq(St4)),
 
@@ -119,7 +119,7 @@ cet_id_rev_repeated() ->
 
     % purge the same Id,Rev when the doc was completely purged
     {ok, St6} = test_engine_util:apply_actions(Engine, St5, Actions3),
-    {ok, PurgedIdRevs3} = Engine:fold_purged_docs(St6, 0, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs3} = Engine:fold_purge_infos(St6, 0, fun fold_fun/2, [], []),
     ?assertEqual(PurgedIdRevs00, lists:reverse(PurgedIdRevs3)),
     ?assertEqual(2, Engine:get_purge_seq(St6)).
 

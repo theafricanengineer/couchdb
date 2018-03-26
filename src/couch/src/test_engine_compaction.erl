@@ -95,7 +95,7 @@ cet_compact_with_everything() ->
         {<<"foo">>, [FooRev#rev_info.rev]}
     ],
 
-    {ok, PIdRevs6} = Engine:fold_purged_docs(St6, 0, fun fold_fun/2, [], []),
+    {ok, PIdRevs6} = Engine:fold_purge_infos(St6, 0, fun fold_fun/2, [], []),
     ?assertEqual(PurgedIdRevs, PIdRevs6),
 
     {ok, St7} = try
@@ -130,7 +130,7 @@ cet_compact_with_everything() ->
     end),
 
     {ok, St10, undefined} = Engine:finish_compaction(St9, DbName, [], Term),
-    {ok, PIdRevs11} = Engine:fold_purged_docs(St10, 0, fun fold_fun/2, [], []),
+    {ok, PIdRevs11} = Engine:fold_purge_infos(St10, 0, fun fold_fun/2, [], []),
     ?assertEqual(PurgedIdRevs, PIdRevs11),
 
     Db2 = test_engine_util:db_as_term(Engine, St10),
@@ -248,7 +248,7 @@ ignore_cet_compact_purged_docs_limit() ->
     % check that before compaction all NumDocs of purge_requests
     % are in purge_tree,
     % even if NumDocs=1200 is greater than purged_docs_limit=1000
-    {ok, PurgedIdRevs} = Engine:fold_purged_docs(St3, 0, fun fold_fun/2, [], []),
+    {ok, PurgedIdRevs} = Engine:fold_purge_infos(St3, 0, fun fold_fun/2, [], []),
     ?assertEqual(1, Engine:get_oldest_purge_seq(St3)),
     ?assertEqual(NumDocs, length(PurgedIdRevs)),
 
@@ -260,7 +260,7 @@ ignore_cet_compact_purged_docs_limit() ->
     % are in purge_tree
     PurgedDocsLimit = Engine:get_purged_docs_limit(St5),
     OldestPSeq = Engine:get_oldest_purge_seq(St5),
-    {ok, PurgedIdRevs2} = Engine:fold_purged_docs(
+    {ok, PurgedIdRevs2} = Engine:fold_purge_infos(
         St5, OldestPSeq - 1, fun fold_fun/2, [], []),
     ExpectedOldestPSeq = NumDocs - PurgedDocsLimit + 1,
     ?assertEqual(ExpectedOldestPSeq, OldestPSeq),
