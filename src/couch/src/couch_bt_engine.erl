@@ -820,7 +820,7 @@ init_state(FilePath, Fd, Header0, Options) ->
         {reduce, fun ?MODULE:purge_tree_reduce/2}
     ]),
 
-    PurgeSeqTreeState = couch_bt_engine_header:upurge_tree_state(Header),
+    PurgeSeqTreeState = couch_bt_engine_header:purge_seq_tree_state(Header),
     {ok, PurgeSeqTree} = couch_btree:open(PurgeSeqTreeState, Fd, [
         {split, fun ?MODULE:purge_seq_tree_split/1},
         {join, fun ?MODULE:purge_seq_tree_join/2},
