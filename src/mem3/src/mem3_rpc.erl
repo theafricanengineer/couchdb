@@ -156,7 +156,7 @@ load_purge_infos_rpc(DbName, SrcUUID, BatchSize) ->
             TgtUUID = couch_db:get_uuid(Db),
             PurgeDocId = mem3_rep:make_purge_id(SrcUUID, TgtUUID),
             StartSeq = case couch_db:open_doc(Db, PurgeDocId, []) of
-                {ok, #doc{props = {Props}}} ->
+                {ok, #doc{body = {Props}}} ->
                     couch_util:get_value(<<"purge_seq">>, Props);
                 {not_found, _} ->
                     {ok, Oldest} = couch_db:get_oldest_purge_seq(Db),
@@ -173,7 +173,7 @@ load_purge_infos_rpc(DbName, SrcUUID, BatchSize) ->
                     couch_db:fold_purge_infos(Db, StartSeq, FoldFun, InitAcc),
             {ok, PurgeSeq} = couch_db:get_purge_seq(Db),
             Remaining = PurgeSeq - ThroughSeq,
-            rexi:reply({ok, PurgeDocId, PurgeInfos, ThroughSeq, Remainin})
+            rexi:reply({ok, PurgeDocId, PurgeInfos, ThroughSeq, Remaining});
         Else ->
             rexi:reply(Else)
     end.
