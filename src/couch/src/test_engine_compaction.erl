@@ -209,19 +209,9 @@ cet_recompact_purge() ->
         {'$gen_cast', {compact_done, Engine, Term0}} ->
             Term0;
         {'DOWN', Ref, _, _, Reason} ->
-            erlang:error({compactor_died, Reason});
-        {'$gen_call', {NewPid, Ref2}, get_disposable_purge_seq} ->
-            NewPid!{Ref2, {ok, 0}},
-            receive
-                {'$gen_cast', {compact_done, Engine, Term0}} ->
-                    Term0;
-                {'DOWN', Ref, _, _, Reason} ->
-                    erlang:error({compactor_died, Reason})
-                after 10000 ->
-                    erlang:error(compactor_timed_out)
-            end
-        after 10000 ->
-            erlang:error(compactor_timed_out)
+            erlang:error({compactor_died, Reason})
+    after 10000 ->
+        erlang:error(compactor_timed_out)
     end,
 
     {ok, St6, undefined} = Engine:finish_compaction(St5, DbName, [], NewTerm),

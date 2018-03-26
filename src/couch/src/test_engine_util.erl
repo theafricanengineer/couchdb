@@ -627,26 +627,10 @@ compact(Engine, St1, DbPath) ->
     Term = receive
         {'$gen_cast', {compact_done, Engine, Term0}} ->
             Term0;
-            erlang:error({compactor_died, Reason});
-        {'$gen_call', {Pid, Ref2}, get_disposable_purge_seq} ->
-            % assuming no client exists (no internal replications or indexes)
-            PSeq = Engine:get_purge_seq(St2),
-            OldestPSeq = Engine:get_oldest_purge_seq(St2),
-            PDocsLimit = Engine:get_purged_docs_limit(St2),
-            ExpectedDispPSeq = PSeq - PDocsLimit,
-            DisposablePSeq = if ExpectedDispPSeq > 0 -> ExpectedDispPSeq;
-                    true -> OldestPSeq - 1 end,
-            Pid!{Ref2, {ok, DisposablePSeq}},
-            receive
-                {'$gen_cast', {compact_done, Engine, Term0}} ->
-                    Term0;
-                {'DOWN', Ref, _, _, Reason} ->
-                    erlang:error({compactor_died, Reason})
-                after 10000 ->
-                    erlang:error(compactor_timed_out)
-            end
-        after ?COMPACTOR_TIMEOUT ->
-            erlang:error(compactor_timed_out)
+        {'DOWN', Ref, _, _, Reason} ->
+            erlang:error({compactor_died, Reason})
+    after ?COMPACTOR_TIMEOUT ->
+        erlang:error(compactor_timed_out)
     end,
 
     {ok, St2, DbName, Pid, Term}.
