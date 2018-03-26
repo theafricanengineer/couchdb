@@ -125,7 +125,7 @@ cet_id_rev_repeated() ->
 
 
 fold_fun({_PSeq, _UUID, Id, Revs}, Acc) ->
-    [{Id, Revs} | Acc].
+    {ok, [{Id, Revs} | Acc]}.
 
 
 docid(I) ->

@@ -168,4 +168,4 @@ cet_add_two_purge_one() ->
 
 
 fold_fun({_Pseq, _UUID, Id, Revs}, Acc) ->
-    [{Id, Revs} | Acc].
+    {ok, [{Id, Revs} | Acc]}.

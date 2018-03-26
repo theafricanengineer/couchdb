@@ -234,8 +234,8 @@ gen_write(Engine, St, {purge, {DocId, PrevRevs0, _}}, UpdateSeq) ->
         % Check if this doc has been purged before
         FoldFun = fun({_PSeq, _UUID, Id, _Revs}, _Acc) ->
             case Id of
-                DocId -> true;
-                _ -> false
+                DocId -> {stop, true};
+                _ -> {ok, false}
             end
         end,
         {ok, IsPurgedBefore} = Engine:fold_purge_infos(
@@ -259,8 +259,8 @@ gen_write(Engine, St, {purge, {DocId, PrevRevs0, _}}, UpdateSeq) ->
             % Check if these Revs have been purged before
             FoldFun = fun({_Pseq, _UUID, Id, Revs}, Acc) ->
                 case Id of
-                    DocId -> Acc ++ Revs;
-                    _ -> Acc
+                    DocId -> {ok, Acc ++ Revs};
+                    _ -> {ok, Acc}
                 end
             end,
             {ok, PurgedRevs} = Engine:fold_purge_infos(St, 0, FoldFun, [], []),
@@ -496,7 +496,7 @@ db_changes_as_term(Engine, St) ->
 db_purged_docs_as_term(Engine, St) ->
     StartPSeq = Engine:get_oldest_purge_seq(St) - 1,
     FoldFun = fun({PSeq, UUID, Id, Revs}, Acc) ->
-        [{PSeq, UUID, Id, Revs} | Acc]
+        {ok, [{PSeq, UUID, Id, Revs} | Acc]}
     end,
     {ok, PDocs} = Engine:fold_purge_infos(St, StartPSeq, FoldFun, [], []),
     lists:reverse(PDocs).

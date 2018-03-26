@@ -278,4 +278,4 @@ local_docid(I) ->
 
 
 fold_fun({_PSeq, _UUID, Id, Revs}, Acc) ->
-    [{Id, Revs} | Acc].
+    {ok, [{Id, Revs} | Acc]}.
