@@ -673,7 +673,7 @@
 
     set_revs_limit/2,
     set_security/2,
-    set_purge_docs_limit/2,
+    set_purge_infos_limit/2,
 
     open_docs/2,
     open_local_docs/2,
