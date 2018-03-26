@@ -139,7 +139,7 @@ set_security(DbName, SecObj, Options) ->
     fabric_db_meta:set_security(dbname(DbName), SecObj, opts(Options)).
 
 %% @doc sets the upper bound for the number of stored purge requests
--spec set_purged_docs_limit(dbname(), pos_integer(), [option()]) -> ok.
+-spec set_purge_infos_limit(dbname(), pos_integer(), [option()]) -> ok.
 set_purge_infos_limit(DbName, Limit, Options)
         when is_integer(Limit), Limit > 0 ->
     fabric_db_meta:set_purge_infos_limit(dbname(DbName), Limit, opts(Options)).
