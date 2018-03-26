@@ -219,7 +219,7 @@ purge_index(Db, Mod, IdxState) ->
                 {ok, StateAcc} = Mod:purge(Db, PurgeSeq, [{Id, Revs}], Acc),
                 StateAcc
             end,
-            {ok, NewStateAcc} = couch_db:fold_purged_docs(
+            {ok, NewStateAcc} = couch_db:fold_purge_infos(
                 Db,
                 IdxPurgeSeq,
                 FoldFun,
