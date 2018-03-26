@@ -299,21 +299,7 @@ maybe_create_local_purge_doc(DbName, #doc{}=DDoc) ->
 
 
 update_local_purge_doc(Db, State) ->
-    Sig = couch_index_util:hexsig(get(signature, State)),
-    Doc = couch_doc:from_json_obj({[
-        {<<"_id">>, couch_mrview_util:get_local_purge_doc_id(Sig)},
-        {<<"purge_seq">>, get(purge_seq, State)},
-        {<<"timestamp_utc">>, couch_util:utc_string()},
-        {<<"verify_module">>, <<"couch_mrview_index">>},
-        {<<"verify_function">>, <<"verify_index_exists">>},
-        {<<"verify_options">>, {[
-            {<<"dbname">>, get(db_name, State)},
-            {<<"ddoc_id">>, get(idx_name, State)},
-            {<<"signature">>, Sig}
-        ]}},
-        {<<"type">>, <<"mrview">>}
-    ]}),
-    couch_db:update_doc(Db, Doc, []).
+    update_local_purge_doc(Db, State, get(purge_seq, State)).
 
 
 update_local_purge_doc(Db, State, PSeq) ->
@@ -321,18 +307,18 @@ update_local_purge_doc(Db, State, PSeq) ->
     DocId = couch_mrview_util:get_local_purge_doc_id(Sig),
     case couch_db:open_doc(Db, DocId, []) of
         {not_found, _Reason} ->
+            {Mega, Secs, _} = os:timestamp(),
+            NowSecs = Mega * 1000000 + Secs,
             Doc = couch_doc:from_json_obj({[
                 {<<"_id">>, DocId},
+                {<<"type">>, <<"mrview">>},
                 {<<"purge_seq">>, PSeq},
-                {<<"timestamp_utc">>, couch_util:utc_string()},
+                {<<"updated_on">>, NowSecs},
                 {<<"verify_module">>, <<"couch_mrview_index">>},
                 {<<"verify_function">>, <<"verify_index_exists">>},
-                {<<"verify_options">>, {[
-                    {<<"dbname">>, State#mrst.db_name},
-                    {<<"ddoc_id">>, State#mrst.idx_name},
-                    {<<"signature">>, Sig}
-                ]}},
-                {<<"type">>, <<"mrview">>}
+                {<<"dbname">>, State#mrst.db_name},
+                {<<"ddoc_id">>, State#mrst.idx_name},
+                {<<"signature">>, Sig}
             ]}),
             couch_db:update_doc(Db, Doc, []);
         {ok, _LocalPurgeDoc} ->
