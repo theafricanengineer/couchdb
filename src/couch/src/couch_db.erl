@@ -384,13 +384,14 @@ purge_docs(Db, IdRevs) ->
     Rev :: {non_neg_integer(), binary()},
     PurgeOption :: interactive_edit | replicated_changes,
     Reply :: {ok, []} | {ok, [Rev]}.
-purge_docs(#db{main_pid = Pid}, UUIdsIdsRevs, Options) ->
+purge_docs(#db{main_pid = Pid} = Db, UUIdsIdsRevs, Options) ->
     increment_stat(Db, [couchdb, database_purges]),
-    gen_server:call(Pid, {purge_docs, UUIdsIdsRevs, Options});
+    gen_server:call(Pid, {purge_docs, UUIdsIdsRevs, Options}).
 
 -spec get_purge_infos(#db{}, [UUId]) -> [PurgeInfo] when
     UUId :: binary(),
     PurgeInfo :: {PurgeSeq, UUId, Id, [Rev]} | not_found,
+    PurgeSeq :: non_neg_integer(),
     Id :: binary(),
     Rev :: {non_neg_integer(), binary()}.
 get_purge_infos(Db, UUIDs) ->
@@ -425,7 +426,7 @@ get_minimum_purge_seq(#db{} = Db) ->
         {start_key, list_to_binary(?LOCAL_DOC_PREFIX + "purge-")},
         {end_key_gt, list_to_binary(?LOCAL_DOC_PREFIX + "purge.")}
     ],
-    {ok, MinIdxSeq} = couch_db:fold_local_docs(Db, FoldFun, InitSeq, Opts),
+    {ok, MinIdxSeq} = couch_db:fold_local_docs(Db, FoldFun, InitMinSeq, Opts),
     FinalSeq = case MinIdxSeq < PurgeSeq - PurgeInfosLimit of
         true -> MinIdxSeq;
         false -> erlang:max(0, PurgeSeq - PurgeInfosLimit)
@@ -439,7 +440,7 @@ get_minimum_purge_seq(#db{} = Db) ->
     FinalSeq.
 
 
-purge_client_exists(DbName, DocID, Props) ->
+purge_client_exists(DbName, DocId, Props) ->
     % Warn about clients that have not updated their purge
     % checkpoints in the last "index_lag_warn_seconds"
     LagWindow = config:get_integer(
@@ -450,14 +451,14 @@ purge_client_exists(DbName, DocID, Props) ->
     LagThreshold = NowSecs - LagWindow,
 
     try
-        CheckFun = get_purge_client_fun(Props),
+        CheckFun = get_purge_client_fun(DocId, Props),
         Exists = CheckFun(DbName, DocId, Props),
         if not Exists -> ok; true ->
             Updated = couch_util:get_value(<<"updated_on">>, Props),
             if is_integer(Updated) and Updated > LagThreshold -> ok; true ->
-                Diff = NowSecs - LU,
+                Diff = NowSecs - Updated,
                 Fmt = "Purge checkpint '~s' not updated in ~p seconds",
-                couch_log:error(Fmt, [DocId, NowSecs - LU])
+                couch_log:error(Fmt, [DocId, Diff])
             end
         end,
         Exists
@@ -468,13 +469,13 @@ purge_client_exists(DbName, DocID, Props) ->
     end.
 
 
-get_purge_client_fun(DocId, Props) -
+get_purge_client_fun(DocId, Props) ->
     M0 = couch_util:get_value(<<"verify_module">>, Props),
-    try
-        M = binary_to_existing_atom(M0, latin1)
+    M = try
+        binary_to_existing_atom(M0, latin1)
     catch error:badarg ->
-        Fmt = "Missing index module '~s' for purge checkpoint '~s'",
-        couch_log:error(Fmt, [M0, DocId]),
+        Fmt1 = "Missing index module '~s' for purge checkpoint '~s'",
+        couch_log:error(Fmt1, [M0, DocId]),
         throw(failed)
     end,
 
@@ -483,8 +484,8 @@ get_purge_client_fun(DocId, Props) -
         F = binary_to_existing_atom(F0, latin1),
         fun M:F/2
     catch error:badarg ->
-        Fmt = "Missing function '~s' in '~s' for purge checkpoint '~s'",
-        couch_log:error(Fmt, [F0, M0, DocId]),
+        Fmt2 = "Missing function '~s' in '~s' for purge checkpoint '~s'",
+        couch_log:error(Fmt2, [F0, M0, DocId]),
         throw(failed)
     end.
 
