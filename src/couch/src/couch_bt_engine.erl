@@ -47,7 +47,6 @@
     set_revs_limit/2,
     set_purge_infos_limit/2,
     set_security/2,
-    set_purged_docs_limit/2,
 
     open_docs/2,
     open_local_docs/2,
@@ -348,7 +347,7 @@ read_doc_body(#st{} = St, #doc{} = Doc) ->
 
 
 load_purge_infos(St, UUIDs) ->
-    Results = couch_btree:lookup(St#st.upurge_tree, UUIDs),
+    Results = couch_btree:lookup(St#st.purge_tree, UUIDs),
     lists:map(fun
         ({ok, Info}) -> Info;
         (not_found) -> not_found
@@ -444,10 +443,10 @@ purge_docs(#st{} = St, Pairs, PurgeInfos) ->
         id_tree = IdTree,
         seq_tree = SeqTree,
         purge_tree = PurgeTree,
-        upurge_tree = UPurgeTree
+        purge_seq_tree = PurgeSeqTree
     } = St,
 
-    RemDocIds = [Old#full_doc_info.doc_id || {Old, not_found} <- Pairs],
+    RemDocIds = [Old#full_doc_info.id || {Old, not_found} <- Pairs],
     RemSeqs = [Old#full_doc_info.update_seq || {Old, _} <- Pairs],
     DocsToAdd = [New || {_, New} <- Pairs, New /= not_found],
     CurrSeq = couch_bt_engine_header:get(St#st.header, update_seq),
@@ -458,8 +457,8 @@ purge_docs(#st{} = St, Pairs, PurgeInfos) ->
     % indexers see that they need to process the new purge
     % information.
     UpdateSeq = case NewSeq == CurrSeq of
-        true -> InitUpdateSeq + 1;
-        false -> NewUpdateSeq
+        true -> CurrSeq + 1;
+        false -> NewSeq
     end,
     Header = couch_bt_engine_header:set(St#st.header, [
         {update_seq, UpdateSeq}
@@ -470,7 +469,7 @@ purge_docs(#st{} = St, Pairs, PurgeInfos) ->
     {ok, PurgeTree2} = couch_btree:add(PurgeTree, PurgeInfos),
     {ok, PurgeSeqTree2} = couch_btree:add(PurgeSeqTree, PurgeInfos),
     {ok, St#st{
-        header = Header2,
+        header = Header,
         id_tree = IdTree2,
         seq_tree = SeqTree2,
         purge_tree = PurgeTree2,
@@ -544,7 +543,7 @@ fold_changes(St, SinceSeq, UserFun, UserAcc, Options) ->
 fold_purge_infos(St, StartSeq0, UserFun, UserAcc, Options) ->
     PurgeSeqTree = St#st.purge_seq_tree,
     StartSeq = StartSeq0 + 1,
-    MinSeq = load_oldest_purge_seq(PurgeSeqTree),
+    MinSeq = get_oldest_purge_seq(St),
     if MinSeq =< StartSeq -> ok; true ->
         throw({invalid_start_purge_seq, StartSeq0})
     end,
@@ -553,7 +552,7 @@ fold_purge_infos(St, StartSeq0, UserFun, UserAcc, Options) ->
     end,
     Opts = [{start_key, StartSeq}] ++ Options,
     {ok, _, OutAcc} = couch_btree:fold(PurgeSeqTree, Wrapper, UserAcc, Opts),
-    {ok, OutAcc};
+    {ok, OutAcc}.
 
 
 count_changes_since(St, SinceSeq) ->
@@ -714,7 +713,7 @@ purge_tree_split({PurgeSeq, UUID, DocId, Revs}) ->
     {UUID, {PurgeSeq, DocId, Revs}}.
 
 
-purge_tree_join({UUID, {PurgeSeq, DocId, Revs}}) ->
+purge_tree_join(UUID, {PurgeSeq, DocId, Revs}) ->
     {PurgeSeq, UUID, DocId, Revs}.
 
 
@@ -722,7 +721,7 @@ purge_seq_tree_split({PurgeSeq, UUID, DocId, Revs}) ->
     {PurgeSeq, {UUID, DocId, Revs}}.
 
 
-purge_seq_tree_join({PurgeSeq, {UUID, DocId, Revs}}) ->
+purge_seq_tree_join(PurgeSeq, {UUID, DocId, Revs}) ->
     {PurgeSeq, UUID, DocId, Revs}.
 
 
@@ -897,6 +896,8 @@ upgrade_purge_info(Fd, Header) ->
         Ptr when is_tuple(Ptr) ->
             Header;
         PurgeSeq when is_integer(PurgeSeq)->
+            % Pointer to old purged ids/revs is in purge_seq_tree_state
+            Ptr = couch_bt_engine_header:get(Header, purge_seq_tree_state),
             {ok, PurgedIdsRevs} = couch_file:pread_term(Fd, Ptr),
 
             {Infos, NewSeq} = lists:foldl(fun({Id, Revs}, {InfoAcc, PSeq}) ->
@@ -921,8 +922,8 @@ upgrade_purge_info(Fd, Header) ->
             {ok, PurgeSeqTreeSt} = couch_btree:get_state(PurgeSeqTree2),
 
             couch_bt_engine_header:set(Header, [
-                {purge_tree_state, PTreeState},
-                {purge_seq_tree_state, UPTreeState}
+                {purge_tree_state, PurgeTreeSt},
+                {purge_seq_tree_state, PurgeSeqTreeSt}
             ])
     end.
 
@@ -1098,7 +1099,7 @@ finish_compaction_int(#st{} = OldSt, #st{} = NewSt1) ->
         header = couch_bt_engine_header:set(Header, [
             {compacted_seq, get_update_seq(OldSt)},
             {revs_limit, get_revs_limit(OldSt)},
-            {purge_infos_limit, get_purged_docs_limit(OldSt)}
+            {purge_infos_limit, get_purge_infos_limit(OldSt)}
         ]),
         local_tree = NewLocal2
     }),

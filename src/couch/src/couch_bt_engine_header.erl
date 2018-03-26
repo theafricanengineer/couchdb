@@ -33,7 +33,7 @@
     local_tree_state/1,
     purge_tree_state/1,
     purge_seq_tree_state/1,
-    purged_docs_limit/1,
+    purge_infos_limit/1,
     security_ptr/1,
     revs_limit/1,
     uuid/1,

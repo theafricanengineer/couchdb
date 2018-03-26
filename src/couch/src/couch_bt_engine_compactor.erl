@@ -107,7 +107,6 @@ copy_purge_info(DbName, OldSt, NewSt, Retry) ->
     MinPurgeSeq = couch_util:with_db(DbName, fun(Db) ->
         couch_db:get_minimum_purge_seq(Db)
     end),
-    OldIdTree = OldSt#st.id_tree,
     OldPSTree = OldSt#st.purge_seq_tree,
     StartSeq = couch_bt_engine:get_purge_seq(NewSt) + 1,
     BufferSize = config:get_integer(
@@ -115,7 +114,7 @@ copy_purge_info(DbName, OldSt, NewSt, Retry) ->
     CheckpointAfter = config:get(
             "database_compaction", "checkpoint_after", BufferSize * 10),
 
-    EnumFun = fun(Info, _Reds, {StAcc, InfosAcc0, InfosSize, CopiedSize}) ->
+    EnumFun = fun(Info, _Reds, {StAcc0, InfosAcc, InfosSize, CopiedSize}) ->
         NewInfosSize = InfosSize + ?term_size(Info),
         if NewInfosSize >= BufferSize ->
             StAcc1 = copy_purge_infos(
@@ -125,11 +124,11 @@ copy_purge_info(DbName, OldSt, NewSt, Retry) ->
                 StAcc2 = commit_compaction_data(StAcc1),
                 {ok, {StAcc2, [], 0, 0}};
             true ->
-                {ok, {StAcc2, [], 0, NewCopiedSize}}
+                {ok, {StAcc1, [], 0, NewCopiedSize}}
             end;
         true ->
-            NewInfosAcc = [Info | InfosAcc]
-            {ok, {StAcc, NewInfosAcc, NewInfosSize, CopiedSize}}
+            NewInfosAcc = [Info | InfosAcc],
+            {ok, {StAcc0, NewInfosAcc, NewInfosSize, CopiedSize}}
         end
     end,
 
@@ -140,7 +139,7 @@ copy_purge_info(DbName, OldSt, NewSt, Retry) ->
     copy_purge_infos(OldSt, NewStAcc, Infos, MinPurgeSeq, Retry).
 
 
-copy_purge_docs(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
+copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
     #st{
         id_tree = OldIdTree
     } = OldSt,
@@ -170,13 +169,13 @@ copy_purge_docs(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
         AllDocIds = [DocId || {_PurgeSeq, _UUID, DocId, _Revs} <- Infos],
         UniqDocIds = lists:usort(AllDocIds),
         {ok, OldIdResults} = couch_btree:lookup(OldIdTree, UniqDocIds),
-        OldZipped = lists:zip(UniqDocIds, Results),
+        OldZipped = lists:zip(UniqDocIds, OldIdResults),
 
         % The list of non-existant docs in the database being compacted
-        MaybeRemDocIds = [DocId || {DocId, not_found} <- Zipped],
+        MaybeRemDocIds = [DocId || {DocId, not_found} <- OldZipped],
 
         % Removing anything that exists in the partially compacted database
-        {ok, NewIdResults} = couch_btree:lookup(NewIdTree, MaybeRemDocIds),
+        {ok, NewIdResults} = couch_btree:lookup(NewIdTree0, MaybeRemDocIds),
         ToRemove = [Doc || Doc <- NewIdResults, Doc /= not_found],
 
         {RemIds, RemSeqs} = lists:unzip(lists:map(fun(FDI) ->
