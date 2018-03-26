@@ -118,7 +118,7 @@ handle_call({purge_docs, PurgeReqs0, Options}, _From, Db) ->
 
     InitAcc = {[], [], []},
     {Pairs, PInfos, Replies} = purge_docs(
-            Db, PurgeReqs, DocInfos, UpdateSeq, PurgeSeq, InitAcc),
+            PurgeReqs, DocInfos, UpdateSeq, PurgeSeq, InitAcc),
 
     Db2 = if Pairs == [] -> Db; true ->
         {ok, Db1} = couch_db_engine:purge_docs(Db, Pairs, PInfos),
