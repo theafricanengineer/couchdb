@@ -374,16 +374,19 @@ get_full_doc_info(Db, Id) ->
 get_full_doc_infos(Db, Ids) ->
     couch_db_engine:open_docs(Db, Ids).
 
+purge_docs(Db, IdRevs) ->
+    purge_docs(Db, IdRevs, []).
 
--spec purge_docs(#db{}, [{UUId, Id, [Rev]}]) ->
+-spec purge_docs(#db{}, [{UUId, Id, [Rev]}], [PurgeOption]) ->
     {ok, [Reply]} when
     UUId :: binary(),
     Id :: binary(),
     Rev :: {non_neg_integer(), binary()},
+    PurgeOption :: interactive_edit | replicated_changes,
     Reply :: {ok, []} | {ok, [Rev]}.
-purge_docs(#db{main_pid = Pid}, UUIdsIdsRevs) ->
+purge_docs(#db{main_pid = Pid}, UUIdsIdsRevs, Options) ->
     increment_stat(Db, [couchdb, database_purges]),
-    gen_server:call(Pid, {purge_docs, UUIdsIdsRevs});
+    gen_server:call(Pid, {purge_docs, UUIdsIdsRevs, Options});
 
 -spec get_purge_infos(#db{}, [UUId]) -> [PurgeInfo] when
     UUId :: binary(),
