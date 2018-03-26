@@ -661,7 +661,7 @@ purge_docs([Req | RestReqs], [FDI | RestInfos], USeq, PSeq, Acc) ->
             case couch_key_tree:remove_leafs(Tree, Revs) of
                 {_, []} ->
                     % No change
-                    {{not_found, not_found}, [], USeq};
+                    {no_change, [], USeq};
                 {[], Removed} ->
                     % Completely purged
                     {{FDI, not_found}, Removed, USeq};
@@ -686,11 +686,16 @@ purge_docs([Req | RestReqs], [FDI | RestInfos], USeq, PSeq, Acc) ->
                     {{FDI, NewFDI}, Removed, NewUpdateSeq}
             end;
         not_found ->
-            {{not_found, not_found}, [], USeq}
+            % Not found means nothing to change
+            {no_change, [], USeq}
     end,
     {Pairs, PInfos, Replies} = Acc,
+    NewPairs = case Pair of
+        no_change -> Pairs;
+        _ -> [Pair | Pairs]
+    end,
     NewAcc = {
-        [Pair | Pairs],
+        NewPairs,
         [{PSeq + 1, UUID, DocId, Revs} | PInfos],
         [{ok, RemovedRevs} | Replies]
     },
