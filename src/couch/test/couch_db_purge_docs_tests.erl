@@ -357,4 +357,4 @@ save_doc(Db, Json) ->
     couch_db:update_doc(Db, Doc, []).
 
 fold_fun({_PSeq, _UUID, Id, Revs}, Acc) ->
-    [{Id, Revs} | Acc].
+    {ok, [{Id, Revs} | Acc]}.
