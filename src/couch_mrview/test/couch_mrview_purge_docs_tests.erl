@@ -264,7 +264,7 @@ is_compaction_running(DbName) ->
     couch_util:get_value(compact_running, DbInfo).
 
 fold_fun({_PSeq, _UUID, Id, Revs}, Acc) ->
-    [{Id, Revs} | Acc].
+    {ok, [{Id, Revs} | Acc]}.
 
 docid(I) ->
     list_to_binary(integer_to_list(I)).
