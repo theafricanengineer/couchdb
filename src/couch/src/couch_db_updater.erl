@@ -98,17 +98,19 @@ handle_call({set_purge_infos_limit, Limit}, _From, Db) ->
     ok = gen_server:call(couch_server, {db_updated, Db2}, infinity),
     {reply, ok, Db2};
 
-handle_call({purge_docs, PurgeReqs0}, _From, Db) ->
-    % First filter out any purge requests we've already
-    % processed.
-    UUIDs = [UUID || {UUID, _Id, _Revs} <- PurgeReqs0],
-    {ok, PurgeInfos} = couch_db:load_purge_infos(Db, UUIDs),
-    PurgeReqs = lists:foldr(fun
-        ({not_found, PReq}, Acc) -> [PReq | Acc];
-        ({{_, _, _, _}, _}, Acc) -> Acc
-    end, lists:zip(PurgeInfos, PurgeReqs0)),
+handle_call({purge_docs, PurgeReqs0, Options}, _From, Db) ->
+    % Filter out any previously applied updates during
+    % internal replication
+    IsRepl = lists:member(replicated_changes, Options),
+    PurgeReqs = if not IsRepl -> PurgeReqs0; true ->
+        UUIDs = [UUID || {UUID, _Id, _Revs} <- PurgeReqs0],
+        {ok, PurgeInfos} = couch_db:load_purge_infos(Db, UUIDs),
+        lists:flatmap(fun
+            ({not_found, PReq}) -> [PReq];
+            ({{_, _, _, _}, _}) -> []
+        end, lists:zip(PurgeInfos, PurgeReqs0))
+    end,
 
-    % Processing any remaining purge requests
     Ids = [Id || {_UUID, Id, _Revs} <- PurgeReqs],
     DocInfos = couch_db_engine:open_docs(Db, Ids),
     UpdateSeq = couch_db_engine:get_update_seq(Db),
@@ -689,7 +691,7 @@ purge_docs([Req | RestReqs], [FDI | RestInfos], USeq, PSeq, Acc) ->
     {Pairs, PInfos, Replies} = Acc,
     NewAcc = {
         [Pair | Pairs],
-        [{PSeq, UUID, DocId, Revs} | PInfos],
+        [{PSeq + 1, UUID, DocId, Revs} | PInfos],
         [{ok, RemovedRevs} | Replies]
     },
     purge_docs(RestReqs, RestInfos, NewUSeq, PSeq + 1, NewAcc).
