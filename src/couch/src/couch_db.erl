@@ -399,32 +399,36 @@ get_purge_infos(Db, UUIDs) ->
 
 
 get_minimum_purge_seq(#db{} = Db) ->
-    PurgeSeq = couch_db:get_purge_seq(Db),
-    OldestPurgeSeq = couch_db:get_oldest_purge_seq(Db),
-    PurgeInfosLimit = couch_db:get_purge_infos_limit(Db),
+    PurgeSeq = couch_db_engine:get_purge_seq(Db),
+    OldestPurgeSeq = couch_db_engine:get_oldest_purge_seq(Db),
+    PurgeInfosLimit = couch_db_engine:get_purge_infos_limit(Db),
 
     FoldFun = fun(#doc{id = DocId, body = {Props}}, SeqAcc) ->
-        ClientSeq = couch_util:get_value(<<"purge_seq">>, Props),
-        case ClientSeq of
-            CS when is_integer(CS), CS >= PurgeSeq - PurgeInfosLimit ->
-                {ok, SeqAcc};
-            CS when is_integer(CS) ->
-                case purge_client_exists(Db, DocId, Props) of
-                    true -> {ok, erlang:min(CS, SeqAcc)};
-                    false -> {ok, SeqAcc}
+        case DocId of
+            <<"_local/purge-", _/binary>> ->
+                ClientSeq = couch_util:get_value(<<"purge_seq">>, Props),
+                case ClientSeq of
+                    CS when is_integer(CS), CS >= PurgeSeq - PurgeInfosLimit ->
+                        {ok, SeqAcc};
+                    CS when is_integer(CS) ->
+                        case purge_client_exists(Db, DocId, Props) of
+                            true -> {ok, erlang:min(CS, SeqAcc)};
+                            false -> {ok, SeqAcc}
+                        end;
+                    _ ->
+                        % If there's a broken doc we have to keep every
+                        % purge info until the doc is fixed or removed.
+                        Fmt = "Invalid purge doc '~s' with purge_seq '~w'",
+                        couch_log:error(Fmt, [DocId, ClientSeq]),
+                        {ok, erlang:min(OldestPurgeSeq, SeqAcc)}
                 end;
             _ ->
-                % If there's a broken doc we have to keep every
-                % purge info until the doc is fixed or removed.
-                Fmt = "Invalid purge doc '~s' with purge_seq '~w'",
-                couch_log:error(Fmt, [DocId, ClientSeq]),
-                {ok, erlang:min(OldestPurgeSeq, SeqAcc)}
+                {stop, SeqAcc}
         end
     end,
     InitMinSeq = PurgeSeq - PurgeInfosLimit,
     Opts = [
-        {start_key, list_to_binary(?LOCAL_DOC_PREFIX + "purge-")},
-        {end_key_gt, list_to_binary(?LOCAL_DOC_PREFIX + "purge.")}
+        {start_key, list_to_binary(?LOCAL_DOC_PREFIX ++ "purge-")}
     ],
     {ok, MinIdxSeq} = couch_db:fold_local_docs(Db, FoldFun, InitMinSeq, Opts),
     FinalSeq = case MinIdxSeq < PurgeSeq - PurgeInfosLimit of
@@ -433,7 +437,7 @@ get_minimum_purge_seq(#db{} = Db) ->
     end,
     % Log a warning if we've got a purge sequence exceeding the
     % configured threshold.
-    if FinalSeq < (PurgeSeq - PurgeInfosLimit) ->
+    if FinalSeq >= (PurgeSeq - PurgeInfosLimit) -> ok; true ->
         Fmt = "The purge sequence for '~s' exceeds configured threshold",
         couch_log:warning(Fmt, [couch_db:name(Db)])
     end,
