@@ -30,7 +30,7 @@
     latest,
     replies = [],
     node_id_revs = [],
-    repair = false,
+    repair = false
 }).
 
 go(DbName, Id, Revs, Options) ->
@@ -109,14 +109,14 @@ handle_message({ok, RawReplies}, Worker, State) ->
             {NewReplies0, MinCount} = dict_replies(PrevReplies, RawReplies),
             {NewReplies0, MinCount >= R, false}
     end,
-    NewNodeIdRevs = if Woker == nil -> PrevNodeIdRevs; true ->
+    NewNodeIdRevs = if Worker == nil -> PrevNodeIdRevs; true ->
         IdRevs = lists:foldl(fun
             ({ok, #doc{id = Id, revs = {Pos, [Rev | _]}}}, Acc) ->
                 [{Id, {Pos, Rev}} | Acc];
             (_, Acc) ->
                 Acc
         end, [], RawReplies),
-        [{Worker#worker.shard, IdRevs} | PrevNodeIdRevs]
+        [{Worker#shard.node, IdRevs} | PrevNodeIdRevs]
     end,
 
     Complete = (ReplyCount =:= (WorkerCount - 1)),
