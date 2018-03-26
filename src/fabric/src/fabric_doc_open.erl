@@ -85,8 +85,8 @@ handle_message({rexi_EXIT, _Reason}, Worker, Acc) ->
 handle_message(Reply, Worker, Acc) ->
     NewReplies = fabric_util:update_counter(Reply, 1, Acc#acc.replies),
     NewNodeIdRevs = case Reply of
-        {ok #doc{id = Id, revs = {Pos, [Rev | _]}} ->
-            [{Worker#shard.node {Id, [{Pos, Rev}]}} | Acc#acc.node_id_revs];
+        {ok, #doc{id = Id, revs = {Pos, [Rev | _]}}} ->
+            [{Worker#shard.node, {Id, [{Pos, Rev}]}} | Acc#acc.node_id_revs];
         _ ->
             Acc#acc.node_id_revs
     end,
@@ -327,7 +327,7 @@ handle_message_reply_test() ->
         {ok, Acc0#acc{
             workers=[Worker0, Worker1],
             replies=[fabric_util:kv(foo,1)],
-            replies_by_node=[{undefined, foo}]
+            node_id_revs=[{undefined, foo}]
         }},
         handle_message(foo, Worker2, Acc0)
     ),
@@ -336,7 +336,7 @@ handle_message_reply_test() ->
         {ok, Acc0#acc{
             workers=[Worker0, Worker1],
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,1)],
-            replies_by_node=[{undefined, bar}]
+            node_id_revs=[{undefined, bar}]
         }},
         handle_message(bar, Worker2, Acc0#acc{
             replies=[fabric_util:kv(foo,1)]
@@ -349,7 +349,7 @@ handle_message_reply_test() ->
 
     ?assertEqual(
         {stop, Acc0#acc{workers=[],replies=[fabric_util:kv(foo,1)],
-            replies_by_node=[{undefined, foo}]}},
+            node_id_revs=[{undefined, foo}]}},
         handle_message(foo, Worker0, Acc0#acc{workers=[Worker0]})
     ),
 
@@ -357,12 +357,12 @@ handle_message_reply_test() ->
         {stop, Acc0#acc{
             workers=[],
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,1)],
-            replies_by_node =[{undefined, bar}, {undefined, foo}]
+            node_id_revs =[{undefined, bar}, {undefined, foo}]
         }},
         handle_message(bar, Worker0, Acc0#acc{
             workers=[Worker0],
             replies=[fabric_util:kv(foo,1)],
-            replies_by_node=[{undefined, foo}]
+            node_id_revs=[{undefined, foo}]
         })
     ),
 
@@ -375,12 +375,12 @@ handle_message_reply_test() ->
             replies=[fabric_util:kv(foo,2)],
             state=r_met,
             q_reply=foo,
-            replies_by_node =[{undefined, foo}, {undefined, foo}]
+            node_id_revs =[{undefined, foo}, {undefined, foo}]
         }},
         handle_message(foo, Worker1, Acc0#acc{
             workers=[Worker0, Worker1],
             replies=[fabric_util:kv(foo,1)],
-            replies_by_node =[{undefined, foo}]
+            node_id_revs =[{undefined, foo}]
         })
     ),
 
@@ -391,7 +391,7 @@ handle_message_reply_test() ->
             replies=[fabric_util:kv(foo,1)],
             state=r_met,
             q_reply=foo,
-            replies_by_node =[{undefined, foo}]
+            node_id_revs =[{undefined, foo}]
         }},
         handle_message(foo, Worker0, Acc0#acc{r=1})
     ),
@@ -402,13 +402,13 @@ handle_message_reply_test() ->
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,2)],
             state=r_met,
             q_reply=foo,
-            replies_by_node =[{undefined, foo}, {undefined, foo},
+            node_id_revs =[{undefined, foo}, {undefined, foo},
                 {undefined, bar}]
         }},
         handle_message(foo, Worker0, Acc0#acc{
             workers=[Worker0],
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,1)],
-            replies_by_node =[{undefined, foo}, {undefined, bar}]
+            node_id_revs =[{undefined, foo}, {undefined, bar}]
         })
     ),
 
