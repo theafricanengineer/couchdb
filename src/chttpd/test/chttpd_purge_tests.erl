@@ -80,7 +80,13 @@ test_empty_purge_request(Url) ->
             [?CONTENT_JSON, ?AUTH], IdsRevs),
         ResultJson = ?JSON_DECODE(ResultBody),
         ?assert(Status =:= 201 orelse Status =:= 202),
-        ?assertEqual({[{<<"purged">>,{[]}}]}, ResultJson)
+        ?assertEqual(
+                {[
+                    {<<"purge_seq">>, null},
+                    {<<"purged">>,{[]}}
+                ]},
+                ResultJson
+            )
     end).
 
 
@@ -95,30 +101,29 @@ test_ok_purge_request(Url) ->
         {ok, _, _, Body3} = create_doc(Url, "doc3"),
         {Json3} = ?JSON_DECODE(Body3),
         Rev3 = couch_util:get_value(<<"rev">>, Json3, undefined),
-        IdsRevs = "{\"doc1\": [\"" ++ ?b2l(Rev1) ++ "\"], \"doc2\": [\"" ++
-            ?b2l(Rev2) ++ "\"], \"doc3\": [\"" ++ ?b2l(Rev3) ++ "\"] }",
+
+        IdsRevsEJson = {[
+            {<<"doc1">>, [Rev1]},
+            {<<"doc2">>, [Rev2]},
+            {<<"doc3">>, [Rev3]}
+        ]},
+        IdsRevs = binary_to_list(?JSON_ENCODE(IdsRevsEJson)),
 
         {ok, Status, _, ResultBody} = test_request:post(Url ++ "/_purge/",
             [?CONTENT_JSON, ?AUTH], IdsRevs),
         ResultJson = ?JSON_DECODE(ResultBody),
         ?assert(Status =:= 201 orelse Status =:= 202),
         ?assertEqual(
-            {[{<<"purged">>, {[
-                {<<"doc1">>, {[
-                    {<<"purged">>,[Rev1]},
-                    {<<"ok">>,true}
-                ]}},
-                {<<"doc2">>, {[
-                    {<<"purged">>,[Rev2]},
-                    {<<"ok">>,true}
-                ]}},
-                {<<"doc3">>, {[
-                    {<<"purged">>,[Rev3]},
-                    {<<"ok">>,true}
-                ]}}
-            ]}}]},
-            ResultJson
-        )
+                {[
+                    {<<"purge_seq">>, null},
+                    {<<"purged">>, {[
+                        {<<"doc1">>, [Rev1]},
+                        {<<"doc2">>, [Rev2]},
+                        {<<"doc3">>, [Rev3]}
+                    ]}}
+                ]},
+                ResultJson
+            )
     end).
 
 
