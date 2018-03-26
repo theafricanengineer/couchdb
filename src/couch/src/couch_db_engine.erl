@@ -683,7 +683,7 @@
     serialize_doc/2,
     write_doc_body/2,
     write_doc_infos/3,
-    purge_doc_revs/3,
+    purge_docs/3,
     commit_data/1,
 
     open_write_stream/2,
@@ -900,9 +900,9 @@ write_doc_infos(#db{} = Db, DocUpdates, LocalDocs) ->
     {ok, Db#db{engine = {Engine, NewSt}}}.
 
 
-purge_doc_revs(#db{} = Db, DocUpdates, Purges) ->
+purge_docs(#db{} = Db, DocUpdates, Purges) ->
     #db{engine = {Engine, EngineState}} = Db,
-    {ok, NewSt} = Engine:purge_doc_revs(
+    {ok, NewSt} = Engine:purge_docs(
         EngineState, DocUpdates, Purges),
     {ok, Db#db{engine = {Engine, NewSt}}}.
 
