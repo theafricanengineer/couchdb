@@ -259,13 +259,7 @@ get_purge_seq(DbName, Options) ->
     with_db(DbName, Options, {couch_db, get_purge_seq, []}).
 
 purge_docs(DbName, UUIdsIdsRevs, Options) ->
-    case proplists:get_value(replicated_changes, Options) of
-        true ->
-            X = replicated_changes;
-        _ ->
-            X = interactive_edit
-    end,
-    with_db(DbName, Options, {couch_db, purge_docs, [UUIdsIdsRevs, X]}).
+    with_db(DbName, Options, {couch_db, purge_docs, [UUIdsIdsRevs, Options]}).
 
 %% @equiv group_info(DbName, DDocId, [])
 group_info(DbName, DDocId) ->
