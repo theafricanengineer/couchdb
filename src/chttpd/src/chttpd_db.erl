@@ -968,7 +968,7 @@ update_doc_result_to_json(DocId, Error) ->
 purge_results_to_json([], []) ->
     {201, []};
 purge_results_to_json([{DocId, _Revs} | RIn], [{ok, PRevs} | ROut]) ->
-    {Code, Results} = purge_results_to_json(RestIn, RestOut),
+    {Code, Results} = purge_results_to_json(RIn, ROut),
     {Code, [{DocId, couch_doc:revs_to_strs(PRevs)} | Results]};
 purge_results_to_json([{DocId, _Revs} | RIn], [{accepted, PRevs} | ROut]) ->
     {Code, Results} = purge_results_to_json(RIn, ROut),
