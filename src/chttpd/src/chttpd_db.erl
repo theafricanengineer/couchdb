@@ -604,19 +604,19 @@ db_req(#httpd{method='GET',path_parts=[_,<<"_revs_limit">>]}=Req, Db) ->
 db_req(#httpd{path_parts=[_,<<"_revs_limit">>]}=Req, _Db) ->
     send_method_not_allowed(Req, "PUT,GET");
 
-db_req(#httpd{method='PUT',path_parts=[_,<<"_purged_docs_limit">>]}=Req, Db) ->
+db_req(#httpd{method='PUT',path_parts=[_,<<"_purge_infos_limit">>]}=Req, Db) ->
     Limit = chttpd:json_body(Req),
     Options = [{user_ctx, Req#httpd.user_ctx}],
     case chttpd:json_body(Req) of
         Limit when is_integer(Limit), Limit > 0 ->
-            ok = fabric:set_purged_docs_limit(Db, Limit, Options),
+            ok = fabric:set_purge_infos_limit(Db, Limit, Options),
             send_json(Req, {[{<<"ok">>, true}]});
         _->
             throw({bad_request, "`purged_docs_limit` must be positive integer"})
     end;
 
-db_req(#httpd{method='GET',path_parts=[_,<<"_purged_docs_limit">>]}=Req, Db) ->
-    send_json(Req, fabric:get_purged_docs_limit(Db));
+db_req(#httpd{method='GET',path_parts=[_,<<"_purged_infos_limit">>]}=Req, Db) ->
+    send_json(Req, fabric:get_purge_infos_limit(Db));
 
 % Special case to enable using an unencoded slash in the URL of design docs,
 % as slashes in document IDs must otherwise be URL encoded.
