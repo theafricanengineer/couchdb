@@ -503,8 +503,8 @@ db_req(#httpd{method='POST',path_parts=[_,<<"_purge">>]}=Req, Db) ->
     {IdsRevs} = chttpd:json_body_obj(Req),
     IdsRevs2 = [{Id, couch_doc:parse_revs(Revs)} || {Id, Revs} <- IdsRevs],
     {ok, Results} = fabric:purge_docs(Db, IdsRevs2, Options),
-    {Code, JSON} = purge_results_to_json(IdsRevs2, Results),
-    send_json(Req, Code, {[{<<"purge_seq">>, null}, {<<"purged">>, JSON}]});
+    {Code, Json} = purge_results_to_json(IdsRevs2, Results),
+    send_json(Req, Code, {[{<<"purge_seq">>, null}, {<<"purged">>, {Json}}]});
 
 db_req(#httpd{path_parts=[_,<<"_purge">>]}=Req, _Db) ->
     send_method_not_allowed(Req, "POST");
