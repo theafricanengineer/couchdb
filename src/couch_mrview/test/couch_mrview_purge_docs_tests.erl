@@ -140,7 +140,7 @@ test_purge_with_compact1(Db) ->
 
         {ok, Db2} = couch_db:reopen(Db1),
         _Result1 = run_query(Db2, []),
-        {ok, PurgedIdRevs} = couch_db:fold_purged_docs(
+        {ok, PurgedIdRevs} = couch_db:fold_purge_infos(
             Db2,
             0,
             fun fold_fun/2,
@@ -188,7 +188,7 @@ test_purge_with_compact2(Db) ->
         % to mrview
         {ok, Db2} = couch_db:reopen(Db1),
         _Result1 = run_query(Db2, []),
-        {ok, PurgedIdRevs} = couch_db:fold_purged_docs(
+        {ok, PurgedIdRevs} = couch_db:fold_purge_infos(
             Db2,
             0,
             fun fold_fun/2,
@@ -206,7 +206,7 @@ test_purge_with_compact2(Db) ->
         % check the remaining purge requests in purge tree
         {ok, Db4} = couch_db:reopen(Db3),
         {ok, OldestPSeq} = couch_db:get_oldest_purge_seq(Db4),
-        {ok, PurgedIdRevs2} = couch_db:fold_purged_docs(
+        {ok, PurgedIdRevs2} = couch_db:fold_purge_infos(
             Db4,
             OldestPSeq - 1,
             fun fold_fun/2,
