@@ -140,7 +140,7 @@ apply_batch(Engine, St, [{purge, {Id, Revs}}]) ->
             St;
         {Pair, _, {Id, PRevs}} ->
             UUID = couch_uuids:new(),
-            {ok, NewSt} = Engine:purge_doc_revs(
+            {ok, NewSt} = Engine:purge_docs(
                 St, [Pair], [{UUID, Id, PRevs}]),
             NewSt
     end;
