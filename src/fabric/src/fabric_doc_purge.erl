@@ -38,20 +38,19 @@ go(DbName, IdsRevs, Options) ->
 
     % Fire off rexi workers for each shard.
     {Workers, WorkerUUIDs} = dict:fold(fun(Shard, ShardReqs, {Ws, WUUIDs}) ->
-        UUIDs = [UUID || {UUID, _Id, _Revs} <- ShardReqs],
-        #shard{name = Name, node = Node} = Shard,
-        Args = [ShardDbName, Reqs, Options]
+        #shard{name = ShardDbName, node = Node} = Shard,
+        Args = [ShardDbName, ShardReqs, Options],
         Ref = rexi:cast(Node, {fabric_rpc, purge_docs, Args}),
         Worker = Shard#shard{ref=Ref},
-        {[Worker | Ws], [{Worker, UUIDs} | WUUIDs]}
+        ShardUUIDs = [UUID || {UUID, _Id, _Revs} <- ShardReqs],
+        {[Worker | Ws], [{Worker, ShardUUIDs} | WUUIDs]}
     end, {[], []}, group_reqs_by_shard(DbName, Reqs)),
 
     RexiMon = fabric_util:create_monitors(Workers),
     Timeout = fabric_util:request_timeout(),
     Acc0 = #acc{
-        workers = Workers,
+        worker_uuids = WorkerUUIDs,
         req_count = Count,
-        ref_uuids = RefUUIDs,
         resps = dict:from_list([{UUID, []} || UUID <- UUIDs]),
         w = w(DbName, Options)
     },
@@ -63,11 +62,11 @@ go(DbName, IdsRevs, Options) ->
             #acc{
                 worker_uuids = WorkerUUIDs,
                 resps = Resps
-            } = Acc1
-            DefunctWorkers = [Worker || {Worker, _} <- WorkerUUIDs]
+            } = Acc1,
+            DefunctWorkers = [Worker || {Worker, _} <- WorkerUUIDs],
             fabric_util:log_timeout(DefunctWorkers, "purge_docs"),
             NewResps = append_errors(timeout, WorkerUUIDs, Resps),
-            Acc1#acc{worker_uuids = [], resps = NewResps}
+            Acc1#acc{worker_uuids = [], resps = NewResps};
         Else ->
             Else
     after
@@ -83,7 +82,7 @@ handle_message({rexi_DOWN, _, {_, Node}, _}, _Worker, Acc) ->
         resps = Resps
     } = Acc,
     Pred = fun({#shard{node = N}, _}) -> N == Node end,
-    {Failed, Rest} = lists:partition(Pred, WorkerUUIDs)
+    {Failed, Rest} = lists:partition(Pred, WorkerUUIDs),
     NewResps = append_errors(internal_server_error, Failed, Resps),
     maybe_stop(Acc#acc{worker_uuids = Rest, resps = NewResps});
 
@@ -94,7 +93,7 @@ handle_message({rexi_EXIT, _}, Worker, Acc) ->
     } = Acc,
     {value, WorkerPair, Rest} = lists:keytake(Worker, 1, WorkerUUIDs),
     NewResps = append_errors(internal_server_error, [WorkerPair], Resps),
-    maybe_stop(Acc#acc{worker_uuids = Rest, resps = NewResps})
+    maybe_stop(Acc#acc{worker_uuids = Rest, resps = NewResps});
 
 handle_message({ok, Replies}, Worker, Acc) ->
     #acc{
@@ -102,6 +101,7 @@ handle_message({ok, Replies}, Worker, Acc) ->
         resps = Resps
     } = Acc,
     {value, {_W, UUIDs}, Rest} = lists:keytake(Worker, 1, WorkerUUIDs),
+    couch_log:error("XKCD: ~p ~p :: ~p ~p", [length(UUIDs), length(Replies), UUIDs, Replies]),
     NewResps = append_resps(UUIDs, Replies, Resps),
     maybe_stop(Acc#acc{worker_uuids = Rest, resps = NewResps});
 
@@ -114,7 +114,7 @@ create_reqs([], UUIDs, Reqs, Count) ->
 
 create_reqs([{Id, Revs} | RestIdsRevs], UUIDs, Reqs, Count) ->
     UUID = couch_uuids:new(),
-    NewUUIDS = [UUID | UUIDs],
+    NewUUIDs = [UUID | UUIDs],
     NewReqs = [{UUID, Id, Revs} | Reqs],
     create_reqs(RestIdsRevs, NewUUIDs, NewReqs, Count + 1).
 
@@ -124,7 +124,7 @@ group_reqs_by_shard(DbName, Reqs) ->
         lists:foldl(fun(Shard, D1) ->
             dict:append(Shard, Req, D1)
         end, D0, mem3:shards(DbName, Id))
-    end, dict:new(), UUIDsIdsRevs).
+    end, dict:new(), Reqs).
 
 
 w(DbName, Options) ->
@@ -153,12 +153,13 @@ maybe_stop(#acc{worker_uuids = []} = Acc) ->
     {stop, Acc};
 maybe_stop(#acc{resps = Resps, w = W} = Acc) ->
     try
-        dict:fold(fun(UUID, UUIDResps, _) ->
+        dict:fold(fun(_UUID, UUIDResps, _) ->
+            couch_log:error("XKCD: ~p ~p", [UUIDResps, W]),
             case has_quorum(UUIDResps, W) of
                 true -> ok;
                 false -> throw(keep_going)
             end
-        end, nil, Resps)
+        end, nil, Resps),
         {stop, Acc}
     catch throw:keep_going ->
         {ok, Acc}
@@ -177,7 +178,7 @@ format_resps(UUIDs, #acc{} = Acc) ->
                 [Error | _] = lists:usort(Replies),
                 [{UUID, Error} | ReplyAcc];
             _ ->
-                AllRevs = lists:usort(lists:flatten(OkReplies)).
+                AllRevs = lists:usort(lists:flatten(OkReplies)),
                 Health = if length(OkReplies) >= W -> ok; true -> accepted end,
                 [{UUID, {Health, AllRevs}} | ReplyAcc]
         end
@@ -195,10 +196,6 @@ has_quorum(_, W) when W =< 0 ->
     true;
 has_quorum([{ok, _} | Rest], W) when W > 0 ->
     has_quorum(Rest, W - 1).
-
-
-update_health(ok, Health) -> Health;
-update_health(accepted, _) -> accepted.
 
 
 %% % eunits

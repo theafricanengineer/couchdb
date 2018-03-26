@@ -284,7 +284,7 @@ update_docs(DbName, Docs, Options) ->
 %% @doc purge revisions for a list '{Id, Revs}'
 %%      returns {ok, {PurgeSeq, Results}}
 -spec purge_docs(dbname(), [{docid(), [revision()]}], [option()]) ->
-    {ok, [{Health, [revision()]}] | {error, any()}}} when
+    {ok, [{Health, [revision()]}] | {error, any()}} when
     Health :: ok | accepted.
 purge_docs(DbName, IdsRevs, Options) when is_list(IdsRevs) ->
     IdsRevs2 = [idrevs(IdRs) || IdRs <- IdsRevs],
