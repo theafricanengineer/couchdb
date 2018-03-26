@@ -460,7 +460,7 @@ db_props_as_term(Engine, St) ->
         get_disk_version,
         get_update_seq,
         get_purge_seq,
-        get_purged_docs_limit,
+        get_purge_infos_limit,
         get_security,
         get_revs_limit,
         get_uuid,

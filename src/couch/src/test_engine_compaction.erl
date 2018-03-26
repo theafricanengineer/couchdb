@@ -258,7 +258,7 @@ ignore_cet_compact_purged_docs_limit() ->
 
     % check that after compaction only purged_docs_limit purge_requests
     % are in purge_tree
-    PurgedDocsLimit = Engine:get_purged_docs_limit(St5),
+    PurgedDocsLimit = Engine:get_purge_infos_limit(St5),
     OldestPSeq = Engine:get_oldest_purge_seq(St5),
     {ok, PurgedIdRevs2} = Engine:fold_purge_infos(
         St5, OldestPSeq - 1, fun fold_fun/2, [], []),
