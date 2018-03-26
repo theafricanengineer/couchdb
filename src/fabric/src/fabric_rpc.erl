@@ -21,7 +21,7 @@
     delete_shard_db_doc/2]).
 -export([get_all_security/2, open_shard/2]).
 -export([compact/1, compact/2]).
--export([get_purge_seq/2, purge_docs/3, set_purged_docs_limit/3]).
+-export([get_purge_seq/2, purge_docs/3, set_purge_infos_limit/3]).
 
 -export([get_db_info/2, get_doc_count/2, get_update_seq/2,
          changes/4, map_view/5, reduce_view/5, group_info/3, update_mrview/4]).
@@ -202,8 +202,8 @@ get_all_security(DbName, Options) ->
 set_revs_limit(DbName, Limit, Options) ->
     with_db(DbName, Options, {couch_db, set_revs_limit, [Limit]}).
 
-set_purged_docs_limit(DbName, Limit, Options) ->
-    with_db(DbName, Options, {couch_db, set_purged_docs_limit, [Limit]}).
+set_purge_infos_limit(DbName, Limit, Options) ->
+    with_db(DbName, Options, {couch_db, set_purge_infos_limit, [Limit]}).
 
 open_doc(DbName, DocId, Options) ->
     with_db(DbName, Options, {couch_db, open_doc, [DocId, Options]}).

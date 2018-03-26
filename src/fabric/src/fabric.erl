@@ -21,7 +21,7 @@
     delete_db/2, get_db_info/1, get_doc_count/1, set_revs_limit/3,
     set_security/2, set_security/3, get_revs_limit/1, get_security/1,
     get_security/2, get_all_security/1, get_all_security/2,
-    get_purged_docs_limit/1, set_purged_docs_limit/3,
+    get_purge_infos_limit/1, set_purge_infos_limit/3,
     compact/1, compact/2]).
 
 % Documents
@@ -140,15 +140,15 @@ set_security(DbName, SecObj, Options) ->
 
 %% @doc sets the upper bound for the number of stored purge requests
 -spec set_purged_docs_limit(dbname(), pos_integer(), [option()]) -> ok.
-set_purged_docs_limit(DbName, Limit, Options)
+set_purge_infos_limit(DbName, Limit, Options)
         when is_integer(Limit), Limit > 0 ->
-    fabric_db_meta:set_purged_docs_limit(dbname(DbName), Limit, opts(Options)).
+    fabric_db_meta:set_purge_infos_limit(dbname(DbName), Limit, opts(Options)).
 
 %% @doc retrieves the upper bound for the number of stored purge requests
--spec get_purged_docs_limit(dbname()) -> pos_integer() | no_return().
-get_purged_docs_limit(DbName) ->
+-spec get_purge_infos_limit(dbname()) -> pos_integer() | no_return().
+get_purge_infos_limit(DbName) ->
     {ok, Db} = fabric_util:get_db(dbname(DbName), [?ADMIN_CTX]),
-    try couch_db:get_purged_docs_limit(Db) after catch couch_db:close(Db) end.
+    try couch_db:get_purge_infos_limit(Db) after catch couch_db:close(Db) end.
 
 get_security(DbName) ->
     get_security(DbName, [?ADMIN_CTX]).

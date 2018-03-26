@@ -13,7 +13,7 @@
 -module(fabric_db_meta).
 
 -export([set_revs_limit/3, set_security/3, get_all_security/2,
-    set_purged_docs_limit/3]).
+    set_purge_infos_limit/3]).
 
 -include_lib("fabric/include/fabric.hrl").
 -include_lib("mem3/include/mem3.hrl").
@@ -49,9 +49,9 @@ handle_revs_message(Error, _, _Acc) ->
     {error, Error}.
 
 
-set_purged_docs_limit(DbName, Limit, Options) ->
+set_purge_infos_limit(DbName, Limit, Options) ->
     Shards = mem3:shards(DbName),
-    Workers = fabric_util:submit_jobs(Shards, set_purged_docs_limit, [Limit, Options]),
+    Workers = fabric_util:submit_jobs(Shards, set_purge_infos_limit, [Limit, Options]),
     Handler = fun handle_purge_message/3,
     Acc0 = {Workers, length(Workers) - 1},
     case fabric_util:recv(Workers, #shard.ref, Handler, Acc0) of
