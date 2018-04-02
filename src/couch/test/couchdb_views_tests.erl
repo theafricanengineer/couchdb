@@ -147,7 +147,7 @@ backup_restore_test_() ->
     }.
 
 
-upgrade_test_() ->
+upgrade_test() ->
     {
         "Upgrade tests",
         {

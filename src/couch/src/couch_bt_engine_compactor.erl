@@ -151,8 +151,8 @@ copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
     } = NewSt,
 
     % Copy over the purge infos
-    InfosToAdd = lists:dropwhile(fun({PSeq, _, _, _}) ->
-        PSeq < MinPurgeSeq
+    InfosToAdd = lists:takewhile(fun({PSeq, _, _, _}) ->
+        PSeq > MinPurgeSeq
     end, Infos),
     {ok, NewPurgeTree1} = couch_btree:add(NewPurgeTree0, InfosToAdd),
     {ok, NewPurgeSeqTree1} = couch_btree:add(NewPurgeSeqTree0, InfosToAdd),

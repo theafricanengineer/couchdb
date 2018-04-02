@@ -170,7 +170,7 @@ test_purge_with_compact2(Db) ->
         % change PurgedDocsLimit to 10 from 1000 to
         % avoid timeout of eunit test
         PurgedDocsLimit = 10,
-        couch_db:set_purged_docs_limit(Db1, PurgedDocsLimit),
+        couch_db:set_purge_infos_limit(Db1, PurgedDocsLimit),
         _Result = run_query(Db1, []),
 
         % purge 150 documents

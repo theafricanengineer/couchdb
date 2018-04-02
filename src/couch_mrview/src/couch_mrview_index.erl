@@ -305,25 +305,22 @@ update_local_purge_doc(Db, State) ->
 update_local_purge_doc(Db, State, PSeq) ->
     Sig = couch_index_util:hexsig(State#mrst.sig),
     DocId = couch_mrview_util:get_local_purge_doc_id(Sig),
-    case couch_db:open_doc(Db, DocId, []) of
-        {not_found, _Reason} ->
-            {Mega, Secs, _} = os:timestamp(),
-            NowSecs = Mega * 1000000 + Secs,
-            Doc = couch_doc:from_json_obj({[
-                {<<"_id">>, DocId},
-                {<<"type">>, <<"mrview">>},
-                {<<"purge_seq">>, PSeq},
-                {<<"updated_on">>, NowSecs},
-                {<<"verify_module">>, <<"couch_mrview_index">>},
-                {<<"verify_function">>, <<"verify_index_exists">>},
-                {<<"dbname">>, State#mrst.db_name},
-                {<<"ddoc_id">>, State#mrst.idx_name},
-                {<<"signature">>, Sig}
-            ]}),
-            couch_db:update_doc(Db, Doc, []);
-        {ok, _LocalPurgeDoc} ->
-            ok
-    end.
+    {Mega, Secs, _} = os:timestamp(),
+    NowSecs = Mega * 1000000 + Secs,
+    Doc = couch_doc:from_json_obj({[
+        {<<"_id">>, DocId},
+        {<<"type">>, <<"mrview">>},
+        {<<"purge_seq">>, PSeq},
+        {<<"updated_on">>, NowSecs},
+        {<<"verify_module">>, <<"couch_mrview_index">>},
+        {<<"verify_function">>, <<"verify_index_exists">>},
+        {<<"verify_options">>, {[
+            {<<"dbname">>, get(db_name, State)},
+            {<<"ddoc_id">>, get(idx_name, State)},
+            {<<"signature">>, Sig}
+        ]}}
+    ]}),
+    couch_db:update_doc(Db, Doc, []).
 
 
 get_index_type(#doc{body={Props}}, IndexType) ->

@@ -303,7 +303,7 @@ set_revs_limit(#st{header = Header} = St, RevsLimit) ->
 set_purge_infos_limit(#st{header = Header} = St, PurgeInfosLimit) ->
     NewSt = St#st{
         header = couch_bt_engine_header:set(Header, [
-            {purged_docs_limit, PurgeInfosLimit}
+            {purge_infos_limit, PurgeInfosLimit}
         ]),
         needs_commit = true
     },

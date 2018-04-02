@@ -612,7 +612,7 @@ db_req(#httpd{method='PUT',path_parts=[_,<<"_purge_infos_limit">>]}=Req, Db) ->
             ok = fabric:set_purge_infos_limit(Db, Limit, Options),
             send_json(Req, {[{<<"ok">>, true}]});
         _->
-            throw({bad_request, "`purged_docs_limit` must be positive integer"})
+            throw({bad_request, "`purge_infos_limit` must be positive integer"})
     end;
 
 db_req(#httpd{method='GET',path_parts=[_,<<"_purged_infos_limit">>]}=Req, Db) ->

@@ -64,7 +64,6 @@ compaction_daemon_test_() ->
                 foreach,
                 fun setup/0, fun teardown/1,
                 [
-                    fun should_compact_by_default_rule/1,
                     fun should_compact_by_dbname_rule/1
                 ]
             }

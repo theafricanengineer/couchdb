@@ -83,7 +83,8 @@ rootdir() ->
 
 
 dbpath() ->
-    binary_to_list(filename:join(rootdir(), couch_uuids:random())).
+    binary_to_list(filename:join(rootdir(),
+        list_to_binary("a" ++ binary_to_list(couch_uuids:random()) ++ ".couch"))).
 
 
 get_engine() ->
@@ -135,13 +136,14 @@ apply_action(Engine, St, Action) ->
 
 apply_batch(Engine, St, [{purge, {Id, Revs}}]) ->
     UpdateSeq = Engine:get_update_seq(St) + 1,
+    PurgeSeq = Engine:get_purge_seq(St) + 1,
     case gen_write(Engine, St, {purge, {Id, Revs}}, UpdateSeq) of
         {_, _, purged_before}->
             St;
         {Pair, _, {Id, PRevs}} ->
             UUID = couch_uuids:new(),
             {ok, NewSt} = Engine:purge_docs(
-                St, [Pair], [{UUID, Id, PRevs}]),
+                St, [Pair], [{PurgeSeq, UUID, Id, PRevs}]),
             NewSt
     end;
 
@@ -615,8 +617,9 @@ list_diff([T1 | R1], [T2 | R2]) ->
 
 
 compact(Engine, St1, DbPath) ->
-    DbName = filename:basename(DbPath),
-    {ok, St2, Pid} = Engine:start_compaction(St1, DbName, [], self()),
+    DbName1 = filename:basename(DbPath),
+    DbName2 = filename:rootname(DbName1),
+    {ok, St2, Pid} = Engine:start_compaction(St1, ?l2b(DbName2), [], self()),
     Ref = erlang:monitor(process, Pid),
 
     % Ideally I'd assert that Pid is linked to us
@@ -633,7 +636,7 @@ compact(Engine, St1, DbPath) ->
         erlang:error(compactor_timed_out)
     end,
 
-    {ok, St2, DbName, Pid, Term}.
+    {ok, St2, DbName2, Pid, Term}.
 
 
 with_config(Config, Fun) ->

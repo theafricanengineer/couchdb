@@ -123,7 +123,8 @@ handle_call({purge_docs, PurgeReqs0, Options}, _From, Db) ->
     Db2 = if Pairs == [] -> Db; true ->
         {ok, Db1} = couch_db_engine:purge_docs(Db, Pairs, PInfos),
         ok = gen_server:call(couch_server, {db_updated, Db1}, infinity),
-        couch_event:notify(Db1#db.name, updated)
+        couch_event:notify(Db1#db.name, updated),
+        Db1
     end,
     {reply, {ok, Replies}, Db2};
 
