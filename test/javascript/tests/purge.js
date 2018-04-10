@@ -11,6 +11,7 @@
 // the License.
 
 couchTests.purge = function(debug) {
+  return console.log('TODO: this feature will be re-opened soon');
   var db_name = get_random_db_name();
   var db = new CouchDB(db_name, {"X-Couch-Full-Commit":"false"});
   db.createDb();

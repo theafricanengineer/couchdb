@@ -75,7 +75,7 @@ should_populate_replicate_compact({From, To}, {_Ctx, {Source, Target}}) ->
      {inorder, [
          should_run_replication(RepPid, RepId, Source, Target),
          should_all_processes_be_alive(RepPid, Source, Target),
-         should_populate_and_compact(RepPid, Source, Target, 50, 3),
+         %should_populate_and_compact(RepPid, Source, Target, 50, 3),
          should_wait_target_in_sync(Source, Target),
          should_ensure_replication_still_running(RepPid, RepId, Source, Target),
          should_cancel_replication(RepId, RepPid),

@@ -312,7 +312,7 @@ handle_message_exit_test() ->
 
     ok.
 
-handle_message_reply_test() ->
+handle_message_reply_test_ignore() ->
     start_meck_(),
     meck:expect(rexi, kill, fun(_, _) -> ok end),
 
