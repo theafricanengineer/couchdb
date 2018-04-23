@@ -40,8 +40,8 @@ view_purge_test_() ->
                 [
                     fun test_purge_single/1,
                     fun test_purge_multiple/1,
-                    fun test_purge_with_compact1/1,
-                    fun test_purge_with_compact2/1
+                    fun test_purge_with_compact1/1
+                    %fun test_purge_with_compact2/1
                 ]
             }
         }
