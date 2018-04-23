@@ -138,7 +138,7 @@ cet_compact_with_everything() ->
     ?assertEqual(nodiff, Diff).
 
 
-ignore_cet_recompact_updates() ->
+cet_recompact_updates() ->
     {ok, Engine, Path, St1} = test_engine_util:init_engine(dbpath),
 
     Actions1 = [
@@ -177,7 +177,7 @@ ignore_cet_recompact_updates() ->
     ?assertEqual(nodiff, Diff).
 
 
-ignore_cet_recompact_purge() ->
+cet_recompact_purge() ->
     {ok, Engine, Path, St1} = test_engine_util:init_engine(dbpath),
 
     Actions1 = [

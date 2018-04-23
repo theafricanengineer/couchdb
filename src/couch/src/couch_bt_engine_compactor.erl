@@ -104,9 +104,10 @@ open_compaction_files(SrcHdr, DbFilePath, Options) ->
 
 
 copy_purge_info(DbName, OldSt, NewSt, Retry) ->
-    MinPurgeSeq = couch_util:with_db(DbName, fun(Db) ->
-        couch_db:get_minimum_purge_seq(Db)
-    end),
+    %MinPurgeSeq = couch_util:with_db(DbName, fun(Db) ->
+    %    couch_db:get_minimum_purge_seq(Db)
+    %end),
+    MinPurgeSeq = 0,
     OldPSTree = OldSt#st.purge_seq_tree,
     StartSeq = couch_bt_engine:get_purge_seq(NewSt) + 1,
     BufferSize = config:get_integer(
@@ -148,7 +149,7 @@ copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
         seq_tree = NewSeqTree0,
         purge_tree = NewPurgeTree0,
         purge_seq_tree = NewPurgeSeqTree0
-    } = NewSt,
+    } = copy_meta_data(NewSt),
 
     % Copy over the purge infos
     InfosToAdd = lists:takewhile(fun({PSeq, _, _, _}) ->
@@ -156,7 +157,11 @@ copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
     end, Infos),
     {ok, NewPurgeTree1} = couch_btree:add(NewPurgeTree0, InfosToAdd),
     {ok, NewPurgeSeqTree1} = couch_btree:add(NewPurgeSeqTree0, InfosToAdd),
-    NewSt1 = NewSt#st{
+    NewIdTreeState = couch_bt_engine_header:id_tree_state(NewSt#st.header),
+    MetaFd = couch_emsort:get_fd(NewSt#st.id_tree),
+    MetaState = couch_emsort:get_state(NewSt#st.id_tree),
+    NewSt0 = bind_id_tree(NewSt, NewSt#st.fd, NewIdTreeState),
+    NewSt1 = NewSt0#st{
         purge_tree = NewPurgeTree1,
         purge_seq_tree = NewPurgeSeqTree1
     },
@@ -165,18 +170,18 @@ copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
     % any of the referenced docs have been completely purged
     % from the database. Any doc that has been completely purged
     % must then be removed from our partially compacted database.
-    if Retry == nil -> NewSt1; true ->
+    NewSt2 = if Retry == nil -> NewSt1; true ->
         AllDocIds = [DocId || {_PurgeSeq, _UUID, DocId, _Revs} <- Infos],
         UniqDocIds = lists:usort(AllDocIds),
-        {ok, OldIdResults} = couch_btree:lookup(OldIdTree, UniqDocIds),
+        OldIdResults = couch_btree:lookup(OldIdTree, UniqDocIds),
         OldZipped = lists:zip(UniqDocIds, OldIdResults),
 
         % The list of non-existant docs in the database being compacted
         MaybeRemDocIds = [DocId || {DocId, not_found} <- OldZipped],
 
         % Removing anything that exists in the partially compacted database
-        {ok, NewIdResults} = couch_btree:lookup(NewIdTree0, MaybeRemDocIds),
-        ToRemove = [Doc || Doc <- NewIdResults, Doc /= not_found],
+        NewIdResults = couch_btree:lookup(NewIdTree0, MaybeRemDocIds),
+        ToRemove = [Doc || {ok, Doc} <- NewIdResults, Doc /= {ok, not_found}],
 
         {RemIds, RemSeqs} = lists:unzip(lists:map(fun(FDI) ->
             #full_doc_info{
@@ -193,7 +198,13 @@ copy_purge_infos(OldSt, NewSt, Infos, MinPurgeSeq, Retry) ->
             id_tree = NewIdTree1,
             seq_tree = NewSeqTree1
         }
-    end.
+    end,
+
+    Header = couch_bt_engine:update_header(NewSt2, NewSt2#st.header),
+    NewSt3 = NewSt2#st{
+        header = Header
+    },
+    bind_emsort(NewSt3, MetaFd, MetaState).
 
 
 copy_compact(DbName, St, NewSt0, Retry) ->
@@ -466,7 +477,7 @@ commit_compaction_data(#st{header = OldHeader} = St0, Fd) ->
     MetaFd = couch_emsort:get_fd(St0#st.id_tree),
     MetaState = couch_emsort:get_state(St0#st.id_tree),
     St1 = bind_id_tree(St0, St0#st.fd, DataState),
-    Header = St1#st.header,
+    Header = couch_bt_engine:update_header(St1, St1#st.header),
     CompHeader = #comp_header{
         db_header = Header,
         meta_state = MetaState
