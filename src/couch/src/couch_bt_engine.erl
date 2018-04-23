@@ -103,6 +103,7 @@
 % Used by the compactor
 -export([
     set_update_seq/2,
+    update_header/2,
     copy_security/2
 ]).
 
@@ -898,33 +899,36 @@ upgrade_purge_info(Fd, Header) ->
         PurgeSeq when is_integer(PurgeSeq)->
             % Pointer to old purged ids/revs is in purge_seq_tree_state
             Ptr = couch_bt_engine_header:get(Header, purge_seq_tree_state),
-            {ok, PurgedIdsRevs} = couch_file:pread_term(Fd, Ptr),
 
-            {Infos, NewSeq} = lists:foldl(fun({Id, Revs}, {InfoAcc, PSeq}) ->
-                Info = {PSeq, couch_uuids:random(), Id, Revs},
-                {[Info | InfoAcc], PSeq + 1}
-            end, {[], PurgeSeq}, PurgedIdsRevs),
+            case Ptr of nil -> Header; _ ->
+                {ok, PurgedIdsRevs} = couch_file:pread_term(Fd, Ptr),
 
-            {ok, PurgeTree} = couch_btree:open(nil, Fd, [
+                {Infos, NewSeq} = lists:foldl(fun({Id, Revs}, {InfoAcc, PSeq}) ->
+                    Info = {PSeq, couch_uuids:random(), Id, Revs},
+                    {[Info | InfoAcc], PSeq + 1}
+                end, {[], PurgeSeq}, PurgedIdsRevs),
+
+                {ok, PurgeTree} = couch_btree:open(nil, Fd, [
                     {split, fun ?MODULE:purge_tree_split/1},
                     {join, fun ?MODULE:purge_tree_join/2},
                     {reduce, fun ?MODULE:purge_tree_reduce/2}
                 ]),
-            {ok, PurgeTree2} = couch_btree:add(PurgeTree, Infos),
-            {ok, PurgeTreeSt} = couch_btree:get_state(PurgeTree2),
+                {ok, PurgeTree2} = couch_btree:add(PurgeTree, Infos),
+                {ok, PurgeTreeSt} = couch_btree:get_state(PurgeTree2),
 
-            {ok, PurgeSeqTree} = couch_btree:open(nil, Fd, [
+                {ok, PurgeSeqTree} = couch_btree:open(nil, Fd, [
                     {split, fun ?MODULE:purge_seq_tree_split/1},
                     {join, fun ?MODULE:purge_seq_tree_join/2},
                     {reduce, fun ?MODULE:purge_tree_reduce/2}
                 ]),
-            {ok, PurgeSeqTree2} = couch_btree:add(PurgeSeqTree, Infos),
-            {ok, PurgeSeqTreeSt} = couch_btree:get_state(PurgeSeqTree2),
+                {ok, PurgeSeqTree2} = couch_btree:add(PurgeSeqTree, Infos),
+                {ok, PurgeSeqTreeSt} = couch_btree:get_state(PurgeSeqTree2),
 
-            couch_bt_engine_header:set(Header, [
-                {purge_tree_state, PurgeTreeSt},
-                {purge_seq_tree_state, PurgeSeqTreeSt}
-            ])
+                couch_bt_engine_header:set(Header, [
+                    {purge_tree_state, PurgeTreeSt},
+                    {purge_seq_tree_state, PurgeSeqTreeSt}
+                ])
+            end
     end.
 
 
