@@ -312,7 +312,7 @@ handle_message_exit_test() ->
 
     ok.
 
-handle_message_reply_test_ignore() ->
+handle_message_reply_test() ->
     start_meck_(),
     meck:expect(rexi, kill, fun(_, _) -> ok end),
 
@@ -327,7 +327,7 @@ handle_message_reply_test_ignore() ->
         {ok, Acc0#acc{
             workers=[Worker0, Worker1],
             replies=[fabric_util:kv(foo,1)],
-            node_id_revs=[{undefined, foo}]
+            node_id_revs=[]
         }},
         handle_message(foo, Worker2, Acc0)
     ),
@@ -336,7 +336,7 @@ handle_message_reply_test_ignore() ->
         {ok, Acc0#acc{
             workers=[Worker0, Worker1],
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,1)],
-            node_id_revs=[{undefined, bar}]
+            node_id_revs=[]
         }},
         handle_message(bar, Worker2, Acc0#acc{
             replies=[fabric_util:kv(foo,1)]
@@ -348,8 +348,7 @@ handle_message_reply_test_ignore() ->
     % is returned. Bit subtle on the assertions here.
 
     ?assertEqual(
-        {stop, Acc0#acc{workers=[],replies=[fabric_util:kv(foo,1)],
-            node_id_revs=[{undefined, foo}]}},
+        {stop, Acc0#acc{workers=[],replies=[fabric_util:kv(foo,1)]}},
         handle_message(foo, Worker0, Acc0#acc{workers=[Worker0]})
     ),
 
@@ -357,7 +356,7 @@ handle_message_reply_test_ignore() ->
         {stop, Acc0#acc{
             workers=[],
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,1)],
-            node_id_revs =[{undefined, bar}, {undefined, foo}]
+             node_id_revs =[{undefined, foo}]
         }},
         handle_message(bar, Worker0, Acc0#acc{
             workers=[Worker0],
@@ -375,7 +374,7 @@ handle_message_reply_test_ignore() ->
             replies=[fabric_util:kv(foo,2)],
             state=r_met,
             q_reply=foo,
-            node_id_revs =[{undefined, foo}, {undefined, foo}]
+            node_id_revs =[{undefined, foo}]
         }},
         handle_message(foo, Worker1, Acc0#acc{
             workers=[Worker0, Worker1],
@@ -391,7 +390,7 @@ handle_message_reply_test_ignore() ->
             replies=[fabric_util:kv(foo,1)],
             state=r_met,
             q_reply=foo,
-            node_id_revs =[{undefined, foo}]
+            node_id_revs =[]
         }},
         handle_message(foo, Worker0, Acc0#acc{r=1})
     ),
@@ -402,8 +401,7 @@ handle_message_reply_test_ignore() ->
             replies=[fabric_util:kv(bar,1), fabric_util:kv(foo,2)],
             state=r_met,
             q_reply=foo,
-            node_id_revs =[{undefined, foo}, {undefined, foo},
-                {undefined, bar}]
+            node_id_revs =[{undefined, foo}, {undefined, bar}]
         }},
         handle_message(foo, Worker0, Acc0#acc{
             workers=[Worker0],
